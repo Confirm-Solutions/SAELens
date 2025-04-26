@@ -1,0 +1,36 @@
+# requirements.txt dependencies
+# Existing project requirements
+accelerate>=0.34.2
+blobfile
+optree==0.14.1
+datasets>=3.0.1
+fsspec>=2023.6.0
+huggingface-hub>=0.25.1
+hydra-core
+hydra-joblib-launcher
+read_version
+hydra-ray-jobs-launcher @ git+https://github.com/sidnb13/hydra#egg=hydra-ray-jobs-launcher&subdirectory=plugins/hydra_ray_jobs_launcher
+hydra-submitit-launcher
+hydra-list-sweeper
+hydra_colorlog
+ipykernel
+ipywidgets>=8.1.1
+jupyter
+matplotlib>=3.7.4
+numpy>=1.23.5
+omegaconf
+openai
+pandas
+pre-commit
+protobuf>=3.20.0
+pycryptodomex
+python-dotenv
+pyvene
+pyyaml
+ray[default]
+scikit-learn
+seaborn
+sentencepiece>=0.1.96
+tiktoken
+tqdm
+wandb
