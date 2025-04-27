@@ -82,7 +82,8 @@ class SAETrainingRunner:
                         self.cfg.get_training_sae_cfg_dict(),
                     )
                 )
-                self._init_sae_group_b_decs()
+                if self.cfg.architecture != "ridge":
+                    self._init_sae_group_b_decs()
         else:
             self.sae = override_sae
 
@@ -194,7 +195,10 @@ class SAETrainingRunner:
             str(base_path / "activations_store_state.safetensors")
         )
 
-        if trainer.sae.cfg.normalize_sae_decoder:
+        if (
+            trainer.sae.cfg.normalize_sae_decoder
+            and trainer.cfg.architecture != "ridge"
+        ):
             trainer.sae.set_decoder_norm_to_unit_norm()
 
         weights_path, cfg_path, sparsity_path = trainer.sae.save_model(

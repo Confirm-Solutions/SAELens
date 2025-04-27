@@ -95,6 +95,57 @@ class JumpReLU(torch.autograd.Function):
         return x_grad, threshold_grad, None
 
 
+class RidgeProjection(torch.autograd.Function):
+    @staticmethod
+    def forward(
+        ctx: Any,
+        X: torch.Tensor,
+        Y: torch.Tensor,
+        lam: float | torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        # (B, P, 1)
+        Y = Y.unsqueeze(-1)
+        # (B, P, P)
+        XtX = torch.bmm(X.transpose(-1, -2), X) + lam
+        M = torch.linalg.inv(XtX)
+        # Apply top-k mask
+        # (B, P, 1)
+        beta = torch.bmm(M, torch.bmm(X.transpose(-1, -2), Y))
+        # (B, P, 1)
+        Yhat = torch.bmm(X, beta)
+        # (B, P, P)
+        H = torch.bmm(torch.bmm(X, M), X.transpose(-1, -2))
+        ctx.save_for_backward(X, Y, beta, Yhat, M, H)
+        return Yhat, beta
+
+    @staticmethod
+    def backward(  # type: ignore[override]
+        ctx: Any, grad_output: torch.Tensor, _unused: torch.Tensor
+    ) -> tuple[torch.Tensor, None, torch.Tensor]:
+        X, Y, beta, Yhat, M, H = ctx.saved_tensors
+        residual = Y - Yhat  # (n×1)
+
+        # term1 = (I−H)·G·βᵀ using batch matrix multiplication
+        term1 = torch.bmm(
+            grad_output - torch.bmm(H, grad_output), beta.transpose(-1, -2)
+        )  # (batch×n×p)
+        # term2 = residual·Gᵀ·X·M using batch matrix multiplication
+        term2 = torch.bmm(
+            torch.bmm(torch.bmm(residual, grad_output.transpose(-1, -2)), X), M
+        )  # (batch×n×p)
+
+        grad_X = term1 + term2  # ∂L/∂X
+
+        core = torch.bmm(
+            torch.bmm(X.transpose(-1, -2), Y),
+            torch.bmm(grad_output.transpose(-1, -2), X),
+        )
+        grad_lam = -torch.bmm(torch.bmm(M, core), M)  # (batch×p×p)
+
+        # We pass no gradients for the mask or Y
+        return grad_X, None, grad_lam
+
+
 @dataclass
 class TrainStepOutput:
     sae_in: torch.Tensor
@@ -255,7 +306,8 @@ class TrainingSAE(SAE):
             self.log_threshold.data = torch.ones(
                 self.cfg.d_sae, dtype=self.dtype, device=self.device
             ) * np.log(cfg.jumprelu_init_threshold)
-
+        elif cfg.architecture == "ridge":
+            self.encode_with_hidden_pre_fn = self.encode_with_hidden_pre_ridge
         else:
             raise ValueError(f"Unknown architecture: {cfg.architecture}")
 
@@ -302,6 +354,28 @@ class TrainingSAE(SAE):
         """
         feature_acts, _ = self.encode_with_hidden_pre_fn(x)
         return feature_acts
+
+    def encode_with_hidden_pre_ridge(
+        self, x: Float[torch.Tensor, "... d_in"]
+    ) -> Float[torch.Tensor, "... d_sae"]:
+        sae_in = self.process_sae_in_ridge(x)
+        scores = sae_in @ self.dictionary
+
+        penalty_diag, topk_indices = self.get_topk_penalty_diag(scores)
+
+        # (P, N)
+        dict_t = self.dictionary.t()
+        # (B, P, K)
+        X = dict_t[topk_indices].transpose(-1, -2)
+
+        reconstruction, masked_beta = RidgeProjection.apply(X, sae_in, penalty_diag)  # type: ignore
+
+        full_beta = torch.zeros(
+            x.shape[0], self.cfg.d_sae, device=x.device, dtype=x.dtype
+        )
+        full_beta.scatter_(-1, topk_indices, masked_beta.squeeze())
+
+        return reconstruction.squeeze(), full_beta, sae_in  # type: ignore
 
     def encode_with_hidden_pre_jumprelu(
         self, x: Float[torch.Tensor, "... d_in"]
@@ -363,8 +437,15 @@ class TrainingSAE(SAE):
         self,
         x: Float[torch.Tensor, "... d_in"],
     ) -> Float[torch.Tensor, "... d_in"]:
-        feature_acts, _ = self.encode_with_hidden_pre_fn(x)
-        return self.decode(feature_acts)
+        if self.cfg.architecture == "ridge":
+            reconstruction, feature_acts, _ = self.encode_with_hidden_pre_fn(  # type: ignore
+                x
+            )
+            sae_out = self.decode_ridge(reconstruction)
+        else:
+            feature_acts, _ = self.encode_with_hidden_pre_fn(x)
+            sae_out = self.decode(feature_acts)
+        return sae_out
 
     def training_forward_pass(
         self,
@@ -374,8 +455,14 @@ class TrainingSAE(SAE):
     ) -> TrainStepOutput:
         # do a forward pass to get SAE out, but we also need the
         # hidden pre.
-        feature_acts, hidden_pre = self.encode_with_hidden_pre_fn(sae_in)
-        sae_out = self.decode(feature_acts)
+        if self.cfg.architecture == "ridge":
+            reconstruction, feature_acts, hidden_pre = self.encode_with_hidden_pre_fn(  # type: ignore
+                sae_in
+            )
+            sae_out = self.decode_ridge(reconstruction)
+        else:
+            feature_acts, hidden_pre = self.encode_with_hidden_pre_fn(sae_in)
+            sae_out = self.decode(feature_acts)
 
         # MSE LOSS
         per_item_mse_loss = self.mse_loss_fn(sae_out, sae_in)
@@ -614,7 +701,7 @@ class TrainingSAE(SAE):
                 )
             )
 
-        if self.cfg.normalize_sae_decoder:
+        if self.cfg.normalize_sae_decoder and self.cfg.architecture != "ridge":
             with torch.no_grad():
                 # Anthropic normalize this to have unit columns
                 self.set_decoder_norm_to_unit_norm()

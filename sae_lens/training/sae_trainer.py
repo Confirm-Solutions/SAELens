@@ -221,7 +221,7 @@ class SAETrainer:
     ) -> TrainStepOutput:
         sae.train()
         # Make sure the W_dec is still zero-norm
-        if self.cfg.normalize_sae_decoder:
+        if self.cfg.normalize_sae_decoder and self.cfg.architecture != "ridge":
             sae.set_decoder_norm_to_unit_norm()
 
         # log and then reset the feature sparsity every feature_sampling_window steps
@@ -259,7 +259,7 @@ class SAETrainer:
         self.scaler.step(self.optimizer)  # just ctx.optimizer.step() if not autocasting
         self.scaler.update()
 
-        if self.cfg.normalize_sae_decoder:
+        if self.cfg.normalize_sae_decoder and self.cfg.architecture != "ridge":
             sae.remove_gradient_parallel_to_decoder_directions()
 
         self.optimizer.zero_grad()

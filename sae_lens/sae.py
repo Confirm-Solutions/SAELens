@@ -44,7 +44,7 @@ T = TypeVar("T", bound="SAE")
 @dataclass
 class SAEConfig:
     # architecture details
-    architecture: Literal["standard", "gated", "jumprelu", "topk"]
+    architecture: Literal["standard", "gated", "jumprelu", "topk", "ridge"]
 
     # forward pass details.
     d_in: int
@@ -72,6 +72,7 @@ class SAEConfig:
     neuronpedia_id: str | None = None
     model_from_pretrained_kwargs: dict[str, Any] = field(default_factory=dict)
     seqpos_slice: tuple[int | None, ...] = (None,)
+    orthogonal_init: bool = False
 
     @classmethod
     def from_dict(cls, config_dict: dict[str, Any]) -> "SAEConfig":
@@ -172,6 +173,9 @@ class SAE(HookedRootModule):
         elif self.cfg.architecture == "jumprelu":
             self.initialize_weights_jumprelu()
             self.encode = self.encode_jumprelu
+        elif self.cfg.architecture == "ridge":
+            self.initialize_weights_ridge()
+            self.encode = self.encode_ridge
         else:
             raise ValueError(f"Invalid architecture: {self.cfg.architecture}")
 
@@ -321,6 +325,17 @@ class SAE(HookedRootModule):
         )
         self.initialize_weights_basic()
 
+    def initialize_weights_ridge(self):
+        self.dictionary = torch.nn.Parameter(
+            torch.zeros(
+                self.cfg.d_in, self.cfg.d_sae, dtype=self.dtype, device=self.device
+            )
+        )
+        if self.cfg.orthogonal_init:
+            torch.nn.init.orthogonal_(self.dictionary)
+        else:
+            torch.nn.init.kaiming_uniform_(self.dictionary)
+
     @overload
     def to(
         self: T,
@@ -380,11 +395,14 @@ class SAE(HookedRootModule):
         self,
         x: torch.Tensor,
     ) -> torch.Tensor:
-        feature_acts = self.encode(x)
-        sae_out = self.decode(feature_acts)
+        if self.cfg.architecture == "ridge":
+            sae_out, feature_acts = self.encode_ridge(x)
+        else:
+            feature_acts = self.encode(x)
+            sae_out = self.decode(feature_acts)  # type: ignore
 
         # TEMP
-        if self.use_error_term:
+        if self.use_error_term and self.cfg.architecture != "ridge":
             with torch.no_grad():
                 # Recompute everything without hooks to get true error term
                 # Otherwise, the output with error term will always equal input, even for causal interventions that affect x_reconstruct
@@ -392,7 +410,7 @@ class SAE(HookedRootModule):
                 # NOTE: we can't just use `sae_error = input - x_reconstruct.detach()` or something simpler, since this would mean intervening on features would mean ablating features still results in perfect reconstruction.
                 with _disable_hooks(self):
                     feature_acts_clean = self.encode(x)
-                    x_reconstruct_clean = self.decode(feature_acts_clean)
+                    x_reconstruct_clean = self.decode(feature_acts_clean)  # type: ignore
                 sae_error = self.hook_sae_error(x - x_reconstruct_clean)
             sae_out = sae_out + sae_error
         return self.hook_sae_output(sae_out)
@@ -429,6 +447,56 @@ class SAE(HookedRootModule):
             self.activation_fn(hidden_pre) * (hidden_pre > self.threshold)
         )
 
+    def get_topk_penalty_diag(
+        self,
+        scores: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Returns a batch of diagonal penalty matrices for ridge regression.
+        Each matrix is (batch, k, k), with the diagonal set to topk_values**alpha.
+        """
+        alpha = self.cfg.activation_fn_kwargs.get("alpha", 2.0)
+        k = self.cfg.activation_fn_kwargs.get("k", 8)
+
+        if self.cfg.activation_fn_kwargs.get("use_fixed_penalty", False):
+            lam = self.cfg.activation_fn_kwargs.get("lam", 1e-3)
+            return torch.eye(k, device=scores.device).unsqueeze(0) * lam
+
+        topk = torch.topk(scores, k=k, dim=-1)
+        topk_indices = topk.indices
+        topk_values = topk.values
+        penalties = torch.diag_embed(topk_values**alpha)  # (batch, k)
+
+        return penalties, topk_indices  # (batch, k, k)
+
+    def encode_ridge(
+        self, x: Float[torch.Tensor, "... d_in"]
+    ) -> tuple[Float[torch.Tensor, "... d_in"], Float[torch.Tensor, "... d_sae"]]:
+        sae_in = self.process_sae_in_ridge(x)
+        scores = sae_in @ self.dictionary
+
+        penalty_diag, topk_indices = self.get_topk_penalty_diag(scores)
+
+        # (P, N)
+        dict_t = self.dictionary.t()
+        # (B, P, K)
+        X = dict_t[topk_indices].transpose(-1, -2)
+        Y = x.unsqueeze(-1)
+        # (B, P, P)
+        XtX = torch.bmm(X.transpose(-1, -2), X) + penalty_diag
+        M = torch.linalg.inv(XtX)
+        # Apply top-k mask
+        # (B, P, 1)
+        masked_beta = torch.bmm(M, torch.bmm(X.transpose(-1, -2), Y))
+
+        full_beta = torch.zeros(
+            x.shape[0], self.cfg.d_sae, device=x.device, dtype=x.dtype
+        )
+        full_beta.scatter_(-1, topk_indices, masked_beta)
+        Yhat = torch.bmm(X, masked_beta).squeeze()
+
+        return Yhat, full_beta
+
     def encode_standard(
         self, x: Float[torch.Tensor, "... d_in"]
     ) -> Float[torch.Tensor, "... d_sae"]:
@@ -450,8 +518,26 @@ class SAE(HookedRootModule):
         sae_in = self.run_time_activation_norm_fn_in(sae_in)
         return sae_in - (self.b_dec * self.cfg.apply_b_dec_to_input)
 
+    def process_sae_in_ridge(
+        self, sae_in: Float[torch.Tensor, "... d_in"]
+    ) -> Float[torch.Tensor, "... d_sae"]:
+        sae_in = sae_in.to(self.dtype)
+        sae_in = self.reshape_fn_in(sae_in)
+        sae_in = self.hook_sae_input(sae_in)
+        return self.run_time_activation_norm_fn_in(sae_in)
+
+    def decode_ridge(
+        self,
+        reconstruction: Float[torch.Tensor, "... d_in"],
+    ) -> Float[torch.Tensor, "... d_in"]:
+        # just a wrapper func to apply post-processing
+        sae_out = self.hook_sae_recons(reconstruction)
+        sae_out = self.run_time_activation_norm_fn_out(sae_out)
+        return self.reshape_fn_out(sae_out, self.d_head)
+
     def decode(
-        self, feature_acts: Float[torch.Tensor, "... d_sae"]
+        self,
+        feature_acts: Float[torch.Tensor, "... d_sae"],
     ) -> Float[torch.Tensor, "... d_in"]:
         """Decodes SAE feature activation tensor into a reconstructed input activation tensor."""
         # "... d_sae, d_sae d_in -> ... d_in",

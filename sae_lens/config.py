@@ -161,7 +161,7 @@ class LanguageModelSAERunnerConfig:
     )
 
     # SAE Parameters
-    architecture: Literal["standard", "gated", "jumprelu", "topk"] = "standard"
+    architecture: Literal["standard", "gated", "jumprelu", "topk", "ridge"] = "standard"
     d_in: int = 512
     d_sae: int | None = None
     b_dec_init_method: str = "geometric_median"
