@@ -473,7 +473,7 @@ class SAE(HookedRootModule):
         #     else:
         #         penalties = penalties[None, :, :].expand(scores.shape[0], -1, -1)
 
-        penalties = torch.diag_embed(topk_values**alpha)  # (batch, (seq), k, k)
+        penalties = torch.diag_embed(topk_values.pow(-alpha))  # (batch, (seq), k, k)
         return penalties, topk_indices  # (batch (seq), k, k)
 
     def encode_ridge(
