@@ -454,8 +454,15 @@ def get_sparsity_and_variance_metrics(
             original_act = activation_store.apply_norm_scaling_factor(original_act)
 
         # send the (maybe normalised) activations into the SAE
-        sae_feature_activations = sae.encode(original_act.to(sae.device))
-        sae_out = sae.decode(sae_feature_activations).to(original_act.device)
+        if sae.cfg.architecture == "ridge":
+            recon, sae_feature_activations = sae.encode_ridge(
+                original_act.to(sae.device)
+            )
+            sae_out = sae.decode_ridge(recon)  # type: ignore
+            sae_out = sae_out.to(original_act.device)
+        else:
+            sae_feature_activations = sae.encode(original_act.to(sae.device))
+            sae_out = sae.decode(sae_feature_activations).to(original_act.device)  # type: ignore
         del cache
 
         if activation_store.normalize_activations == "expected_average_only_in":
@@ -617,7 +624,11 @@ def get_recons_loss(
             activations = activation_store.apply_norm_scaling_factor(activations)
 
         # SAE class agnost forward forward pass.
-        new_activations = sae.decode(sae.encode(activations)).to(activations.dtype)
+        if sae.cfg.architecture == "ridge":
+            recon, _ = sae.encode_ridge(activations)
+            new_activations = sae.decode_ridge(recon).to(activations.dtype)
+        else:
+            new_activations = sae.decode(sae.encode(activations)).to(activations.dtype)
 
         # Unscale if activations were scaled prior to going into the SAE
         if activation_store.normalize_activations == "expected_average_only_in":

@@ -1,7 +1,12 @@
+import os
+
 import torch
+from dotenv import load_dotenv
 
 from sae_lens.config import LanguageModelSAERunnerConfig
 from sae_lens.sae_training_runner import SAETrainingRunner
+
+load_dotenv()
 
 # Pick device
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -14,21 +19,24 @@ cfg = LanguageModelSAERunnerConfig(
     hook_layer=0,
     d_in=512,  # Pythia-70M MLP width
     dataset_path="apollo-research/roneneldan-TinyStories-tokenizer-gpt2",  # Tokenized dataset
+    activation_fn_kwargs={"k": 64, "alpha": 2},
     is_dataset_tokenized=True,
     streaming=True,
     architecture="ridge",  # <--- THIS IS THE KEY BIT
     expansion_factor=8,  # Reasonable expansion
-    train_batch_size_tokens=2048,
+    train_batch_size_tokens=128,
     context_size=128,
     n_batches_in_buffer=8,
     training_tokens=1_000_000,  # Small for demo, increase for real training
     store_batch_size_prompts=8,
     lr=2e-4,
-    l1_coefficient=5.0,
     device=device,
     dtype="float32",
     seed=42,
-    log_to_wandb=False,  # Set True if you want logging
+    log_to_wandb=True,  # Set True if you want logging
+    wandb_entity=os.getenv("WANDB_ENTITY"),
+    wandb_project=os.getenv("WANDB_PROJECT"),  # type: ignore
+    wandb_log_frequency=10,
 )
 
 # Run training

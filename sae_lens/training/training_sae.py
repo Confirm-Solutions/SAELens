@@ -106,15 +106,15 @@ class RidgeProjection(torch.autograd.Function):
         # (B, P, 1)
         Y = Y.unsqueeze(-1)
         # (B, P, P)
-        XtX = torch.bmm(X.transpose(-1, -2), X) + lam
+        XtX = X.transpose(-1, -2) @ X + lam
         M = torch.linalg.inv(XtX)
         # Apply top-k mask
         # (B, P, 1)
-        beta = torch.bmm(M, torch.bmm(X.transpose(-1, -2), Y))
+        beta = M @ (X.transpose(-1, -2) @ Y)
         # (B, P, 1)
-        Yhat = torch.bmm(X, beta)
+        Yhat = X @ beta
         # (B, P, P)
-        H = torch.bmm(torch.bmm(X, M), X.transpose(-1, -2))
+        H = X @ M @ X.transpose(-1, -2)
         ctx.save_for_backward(X, Y, beta, Yhat, M, H)
         return Yhat, beta
 
@@ -126,21 +126,14 @@ class RidgeProjection(torch.autograd.Function):
         residual = Y - Yhat  # (n×1)
 
         # term1 = (I−H)·G·βᵀ using batch matrix multiplication
-        term1 = torch.bmm(
-            grad_output - torch.bmm(H, grad_output), beta.transpose(-1, -2)
-        )  # (batch×n×p)
+        term1 = (grad_output - H @ grad_output) @ beta.transpose(-1, -2)  # (batch×n×p)
         # term2 = residual·Gᵀ·X·M using batch matrix multiplication
-        term2 = torch.bmm(
-            torch.bmm(torch.bmm(residual, grad_output.transpose(-1, -2)), X), M
-        )  # (batch×n×p)
+        term2 = ((residual @ grad_output.transpose(-1, -2)) @ X) @ M  # (batch×n×p)
 
         grad_X = term1 + term2  # ∂L/∂X
 
-        core = torch.bmm(
-            torch.bmm(X.transpose(-1, -2), Y),
-            torch.bmm(grad_output.transpose(-1, -2), X),
-        )
-        grad_lam = -torch.bmm(torch.bmm(M, core), M)  # (batch×p×p)
+        core = (X.transpose(-1, -2) @ Y) @ (grad_output.transpose(-1, -2) @ X)
+        grad_lam = -M @ core @ M  # (batch×p×p)
 
         # We pass no gradients for the mask or Y
         return grad_X, None, grad_lam
@@ -513,6 +506,9 @@ class TrainingSAE(SAE):
             )
             losses["auxiliary_reconstruction_loss"] = topk_loss
             loss = mse_loss + topk_loss
+        elif self.cfg.architecture == "ridge":
+            # No special loss for ridge variant
+            loss = mse_loss
         else:
             # default SAE sparsity loss
             weighted_feature_acts = feature_acts

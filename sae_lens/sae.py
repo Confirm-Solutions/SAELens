@@ -458,16 +458,23 @@ class SAE(HookedRootModule):
         alpha = self.cfg.activation_fn_kwargs.get("alpha", 2.0)
         k = self.cfg.activation_fn_kwargs.get("k", 8)
 
-        if self.cfg.activation_fn_kwargs.get("use_fixed_penalty", False):
-            lam = self.cfg.activation_fn_kwargs.get("lam", 1e-3)
-            return torch.eye(k, device=scores.device).unsqueeze(0) * lam
-
         topk = torch.topk(scores, k=k, dim=-1)
         topk_indices = topk.indices
         topk_values = topk.values
-        penalties = torch.diag_embed(topk_values**alpha)  # (batch, k)
 
-        return penalties, topk_indices  # (batch, k, k)
+        # if self.cfg.activation_fn_kwargs.get("use_fixed_penalty", False):
+        #     lam = self.cfg.activation_fn_kwargs.get("lam", 1e-3)
+        #     penalties = torch.eye(k, device=scores.device) * lam
+
+        #     if scores.dim() == 3:
+        #         penalties = penalties[None, None, :, :].expand(
+        #             scores.shape[0], scores.shape[1], -1, -1
+        #         )
+        #     else:
+        #         penalties = penalties[None, :, :].expand(scores.shape[0], -1, -1)
+
+        penalties = torch.diag_embed(topk_values**alpha)  # (batch, (seq), k, k)
+        return penalties, topk_indices  # (batch (seq), k, k)
 
     def encode_ridge(
         self, x: Float[torch.Tensor, "... d_in"]
@@ -475,30 +482,30 @@ class SAE(HookedRootModule):
         sae_in = self.process_sae_in_ridge(x)
         scores = sae_in @ self.dictionary
 
+        # (batch, seq, k, k), topk_indices (batch, seq, k)
         penalty_diag, topk_indices = self.get_topk_penalty_diag(scores)
 
-        dict_expanded = self.dictionary.unsqueeze(0).expand(
-            x.shape[0], -1, -1
-        )  # (batch, d_in, d_sae)
+        dict_expanded = self.dictionary[None, None, :, :].expand(
+            x.shape[0], x.shape[1], -1, -1
+        )  # (batch, d_in, seq, d_sae)
         X = torch.gather(
             dict_expanded,
-            2,
-            topk_indices.unsqueeze(1).expand(-1, self.dictionary.shape[0], -1),
-        )  # (batch, d_in, k)
-        Y = x.unsqueeze(-1)
+            -1,
+            topk_indices.unsqueeze(2).expand(-1, -1, self.dictionary.shape[0], -1),
+        )  # (batch, seq, d_in, k)
 
         # (B, P, P)
-        XtX = torch.bmm(X.transpose(-1, -2), X) + penalty_diag
+        XtX = X.transpose(-1, -2) @ X + penalty_diag
         M = torch.linalg.inv(XtX)
         # Apply top-k mask
         # (B, P, 1)
-        masked_beta = torch.bmm(M, torch.bmm(X.transpose(-1, -2), Y))
+        masked_beta = M @ (X.transpose(-1, -2) @ sae_in.unsqueeze(-1))
 
         full_beta = torch.zeros(
-            x.shape[0], self.cfg.d_sae, device=x.device, dtype=x.dtype
+            x.shape[0], x.shape[1], self.cfg.d_sae, device=x.device, dtype=x.dtype
         )
-        full_beta.scatter_(-1, topk_indices, masked_beta)
-        Yhat = torch.bmm(X, masked_beta).squeeze()
+        full_beta.scatter_(-1, topk_indices, masked_beta.squeeze())
+        Yhat = (X @ masked_beta).squeeze()
 
         return Yhat, full_beta
 

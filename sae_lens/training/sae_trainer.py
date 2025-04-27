@@ -3,11 +3,11 @@ from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
 import torch
-import wandb
 from torch.optim import Adam
 from tqdm import tqdm
 from transformer_lens.hook_points import HookedRootModule
 
+import wandb
 from sae_lens import __version__
 from sae_lens.config import LanguageModelSAERunnerConfig
 from sae_lens.evals import EvalConfig, run_evals
@@ -358,8 +358,12 @@ class SAETrainer:
             # Remove metrics that are not useful for wandb logging
             eval_metrics.pop("metrics/total_tokens_evaluated", None)
 
-            W_dec_norm_dist = self.sae.W_dec.detach().float().norm(dim=1).cpu().numpy()
-            eval_metrics["weights/W_dec_norms"] = wandb.Histogram(W_dec_norm_dist)  # type: ignore
+            if self.sae.cfg.architecture == "ridge":
+                dictionary_norm_dist = self.sae.dictionary.detach().float().norm(dim=1).cpu().numpy()
+                eval_metrics["weights/dictionary_norms"] = wandb.Histogram(dictionary_norm_dist)  # type: ignore
+            else:
+                W_dec_norm_dist = self.sae.W_dec.detach().float().norm(dim=1).cpu().numpy()
+                eval_metrics["weights/W_dec_norms"] = wandb.Histogram(W_dec_norm_dist)  # type: ignore
 
             if self.sae.cfg.architecture == "standard":
                 b_e_dist = self.sae.b_enc.detach().float().cpu().numpy()
