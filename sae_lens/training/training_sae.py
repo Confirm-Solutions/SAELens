@@ -363,10 +363,14 @@ class TrainingSAE(SAE):
 
         penalty_diag, topk_indices = self.get_topk_penalty_diag(scores)
 
-        # (P, N)
-        dict_t = self.dictionary.t()
-        # (B, P, K)
-        X = dict_t[topk_indices].transpose(-1, -2)
+        # (B, d_in, d_sae)
+        dict_expanded = self.dictionary.unsqueeze(0).expand(x.shape[0], -1, -1)
+        # (B, d_in, k)
+        X = torch.gather(
+            dict_expanded,
+            2,
+            topk_indices.unsqueeze(1).expand(-1, self.dictionary.shape[0], -1),
+        )
 
         reconstruction, masked_beta = RidgeProjection.apply(X, sae_in, penalty_diag)  # type: ignore
 
