@@ -1,67 +1,121 @@
-[tool.poetry]
+# PyTorch is now automatically selected based on platform:
+# - CPU builds on macOS/Windows
+# - CUDA builds on Linux
+# 
+# For manual control, you can still use: UV_TORCH_BACKEND=auto uv sync
+
+[project]
 name = "sae-lens"
 version = "5.9.1"
 description = "Training and Analyzing Sparse Autoencoders (SAEs)"
-authors = ["Joseph Bloom"]
+authors = [
+    { name = "Joseph Bloom" }
+]
 readme = "README.md"
-packages = [{ include = "sae_lens" }]
-include = ["pretrained_saes.yaml"]
-repository = "https://github.com/jbloomAus/SAELens"
-homepage = "https://jbloomaus.github.io/SAELens"
-license = "MIT"
+requires-python = ">=3.10"
+license = { text = "MIT" }
 keywords = [
     "deep-learning",
     "sparse-autoencoders",
     "mechanistic-interpretability",
     "PyTorch",
 ]
-classifiers = ["Topic :: Scientific/Engineering :: Artificial Intelligence"]
+classifiers = [
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "transformer-lens>=2.0.0",
+    "transformers>=4.38.1",
+    "plotly>=5.19.0",
+    "plotly-express>=0.4.1",
+    "matplotlib>=3.8.3",
+    "matplotlib-inline>=0.1.6",
+    "datasets>=2.17.1",
+    "babe>=0.0.7",
+    "nltk>=3.8.1",
+    "safetensors>=0.4.2",
+    "typer>=0.12.3",
+    "pyzmq==26.0.0",
+    "automated-interpretability>=0.0.5,<1.0.0",
+    "python-dotenv>=1.0.1",
+    "pyyaml>=6.0.1",
+    "pytest-profiling>=1.7.0",
+    "zstandard>=0.22.0",
+    "typing-extensions>=4.10.0",
+    "simple-parsing>=0.1.6",
+    # New dependencies from hypersteer
+    "einops>=0.8.0",
+    "pandas>=2.0.0",
+    "scikit-learn>=1.3.0",
+    "seaborn>=0.13.0",
+    "tiktoken>=0.5.0",
+    "wandb>=0.16.0",
+    "together>=1.0.0",
+    "hydra-colorlog>=1.0.0",
+    "hydra-core>=1.3.0",
+    "omegaconf>=2.3.0",
+    "pydantic>=2.0.0",
+    "tqdm>=4.65.0",
+    "httpx>=0.24.0",
+    "openai>=1.0.0",
+    "pyvene>=0.1.0",
+    "adjusttext>=1.0.0",
+    "optuna==4.3.0",
+    "torch>=2.7.0",
+    "torchvision>=0.22.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-transformer-lens = "^2.0.0"
-transformers = "^4.38.1"
-plotly = "^5.19.0"
-plotly-express = "^0.4.1"
-matplotlib = "^3.8.3"
-matplotlib-inline = "^0.1.6"
-datasets = "^2.17.1"
-babe = "^0.0.7"
-nltk = "^3.8.1"
-safetensors = "^0.4.2"
-typer = "^0.12.3"
-mamba-lens = { version = "^0.0.4", optional = true }
-pyzmq = "26.0.0"
-automated-interpretability = ">=0.0.5,<1.0.0"
-python-dotenv = "^1.0.1"
-pyyaml = "^6.0.1"
-pytest-profiling = "^1.7.0"
-zstandard = "^0.22.0"
-typing-extensions = "^4.10.0"
-simple-parsing = "^0.1.6"
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.2",
+    "pytest-cov>=4.1.0",
+    "pre-commit>=3.6.2",
+    "pyright==1.1.365",
+    "ansible-lint>=24.2.3; platform_system != 'Windows'",
+    "botocore>=1.34.101",
+    "boto3>=1.34.101",
+    "docstr-coverage>=2.3.2",
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.5.34",
+    "mkdocs-autorefs>=1.1.0",
+    "mkdocs-section-index>=0.3.9",
+    "mkdocstrings>=0.25.2",
+    "mkdocstrings-python>=1.10.9",
+    "tabulate>=0.9.0",
+    "ruff>=0.7.4",
+    "eai-sparsify>=1.1.1",
+    "ai_commit @ git+https://github.com/sidnb13/ai_commit",
+]
+mamba = [
+    "mamba-lens>=0.0.4",
+]
+reft = [
+    "pyreft>=0.0.1",
+]
+flash-attn = [
+    "flash-attn>=2.0.0",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0.2"
-pytest-cov = "^4.1.0"
-pre-commit = "^3.6.2"
-pyright = "1.1.365"
-mamba-lens = "^0.0.4"
-ansible-lint = { version = "^24.2.3", markers = "platform_system != 'Windows'" }
-botocore = "^1.34.101"
-boto3 = "^1.34.101"
-docstr-coverage = "^2.3.2"
-mkdocs = "^1.6.1"
-mkdocs-material = "^9.5.34"
-mkdocs-autorefs = "^1.1.0"
-mkdocs-section-index = "^0.3.9"
-mkdocstrings = "^0.25.2"
-mkdocstrings-python = "^1.10.9"
-tabulate = "^0.9.0"
-ruff = "^0.7.4"
-eai-sparsify = "^1.1.1"
+[project.urls]
+Homepage = "https://jbloomaus.github.io/SAELens"
+Repository = "https://github.com/jbloomAus/SAELens"
+Documentation = "https://jbloomaus.github.io/SAELens"
 
-[tool.poetry.extras]
-mamba = ["mamba-lens"]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["sae_lens"]
+artifacts = ["pretrained_saes.yaml"]
 
 [tool.ruff.lint]
 exclude = ["*.ipynb"]
@@ -95,12 +149,23 @@ reportDeprecated = "none"
 reportPrivateImportUsage = "none"
 ignore = ["**/wandb/**"]
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+# PyTorch wheel configuration for uv
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
+    { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },
+]
+torchvision = [
+    { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
+    { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },
+]
 
-[tool.semantic_release]
-version_variables = ["sae_lens/__init__.py:__version__"]
-version_toml = ["pyproject.toml:tool.poetry.version"]
-branch = "main"
-build_command = "pip install poetry && poetry build"
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true

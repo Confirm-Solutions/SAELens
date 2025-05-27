@@ -1,0 +1,18 @@
+# @package _global_
+
+defaults:
+  - /architecture: ridge
+  - /model: simplestories
+
+# Training configuration - small scale for demo
+training_tokens: 1_000_000
+train_batch_size_tokens: 128
+context_size: 128
+n_batches_in_buffer: 8
+store_batch_size_prompts: 8
+
+# Learning rate
+lr: 3e-4
+
+# Logging
+wandb_log_frequency: 10 

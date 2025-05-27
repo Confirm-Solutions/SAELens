@@ -1,0 +1,6 @@
+# @package _global_
+architecture: "ridge"
+activation_fn_kwargs:
+  k: 128
+  alpha: 2
+expansion_factor: 8 

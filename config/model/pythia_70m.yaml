@@ -1,0 +1,6 @@
+# @package _global_
+model_name: "EleutherAI/pythia-70m"
+model_class_name: "HookedTransformer"
+hook_name: "blocks.0.hook_mlp_out"
+hook_layer: 0
+d_in: 512 

@@ -168,6 +168,8 @@ checkpoints/
 data/
 artifacts/
 activations/
+outputs/
+multirun/
 
 *.html
 *.DS_Store

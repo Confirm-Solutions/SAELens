@@ -1,0 +1,4 @@
+# @package _global_
+architecture: "standard"
+activation_fn_kwargs: {}
+expansion_factor: 4 
