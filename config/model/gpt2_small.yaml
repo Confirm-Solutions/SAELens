@@ -1,6 +1,7 @@
 # @package _global_
+
+defaults:
+  - default
+
 model_name: "gpt2"
-model_class_name: "HookedTransformer"
-hook_name: "blocks.0.hook_mlp_out"
-hook_layer: 0
 d_in: 3072 

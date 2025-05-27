@@ -8,7 +8,7 @@ from tqdm import tqdm
 from transformer_lens.hook_points import HookedRootModule
 
 import wandb
-from sae_lens import __version__
+from sae_lens import __version__, logger
 from sae_lens.config import LanguageModelSAERunnerConfig
 from sae_lens.evals import EvalConfig, run_evals
 from sae_lens.training.activations_store import ActivationsStore
@@ -205,6 +205,7 @@ class SAETrainer:
             self.activations_store.estimated_norm_scaling_factor = None
 
         # save final sae group to checkpoints folder
+        logger.debug(f"Saving final checkpoint at {self.n_training_tokens} tokens")
         self.save_checkpoint(
             trainer=self,
             checkpoint_name=f"final_{self.n_training_tokens}",
@@ -359,10 +360,16 @@ class SAETrainer:
             eval_metrics.pop("metrics/total_tokens_evaluated", None)
 
             if self.sae.cfg.architecture == "ridge":
-                dictionary_norm_dist = self.sae.dictionary.detach().float().norm(dim=1).cpu().numpy()
-                eval_metrics["weights/dictionary_norms"] = wandb.Histogram(dictionary_norm_dist)  # type: ignore
+                dictionary_norm_dist = (
+                    self.sae.dictionary.detach().float().norm(dim=1).cpu().numpy()
+                )
+                eval_metrics["weights/dictionary_norms"] = wandb.Histogram(
+                    dictionary_norm_dist  # type: ignore
+                )  # type: ignore
             else:
-                W_dec_norm_dist = self.sae.W_dec.detach().float().norm(dim=1).cpu().numpy()
+                W_dec_norm_dist = (
+                    self.sae.W_dec.detach().float().norm(dim=1).cpu().numpy()
+                )
                 eval_metrics["weights/W_dec_norms"] = wandb.Histogram(W_dec_norm_dist)  # type: ignore
 
             if self.sae.cfg.architecture == "standard":
@@ -405,6 +412,7 @@ class SAETrainer:
             self.checkpoint_thresholds
             and self.n_training_tokens > self.checkpoint_thresholds[0]
         ):
+            logger.debug(f"Checkpoint triggered at {self.n_training_tokens} tokens")
             self.save_checkpoint(
                 trainer=self,
                 checkpoint_name=str(self.n_training_tokens),

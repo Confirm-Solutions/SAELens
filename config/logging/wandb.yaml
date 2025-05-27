@@ -1,0 +1,50 @@
+# @package _global_
+# Weights & Biases logging configuration
+
+# Core wandb settings
+log_to_wandb: true
+log_activations_store_to_wandb: false
+log_optimizer_state_to_wandb: false
+
+# Wandb configuration - flattened structure to match training script expectations
+# Project and organization (use env vars for these since they're commonly set)
+wandb_project: ${oc.env:WANDB_PROJECT,"sae_simplestories"}
+wandb_entity: ${oc.env:WANDB_ENTITY,null}
+
+# Run identification
+run_name: null
+wandb_id: null
+wandb_group: null
+wandb_job_type: "train"
+
+# Run metadata
+wandb_tags: null
+wandb_notes: null
+
+# Logging behavior
+wandb_log_frequency: 10
+eval_every_n_wandb_logs: 100
+
+# Code logging
+wandb_save_code: true
+
+# Sync behavior
+wandb_mode: "online"  # online, offline, disabled
+
+# Advanced settings
+wandb_resume: "allow"  # allow, must, never, auto
+wandb_dir: null
+wandb_anonymous: null
+wandb_force: null
+wandb_reinit: null
+wandb_resume_from: null
+wandb_fork_from: null
+wandb_sync_tensorboard: false
+wandb_monitor_gym: false
+wandb_config_exclude_keys: null
+wandb_config_include_keys: null
+wandb_allow_val_change: null
+wandb_settings: null
+
+# Legacy wandb settings (for backward compatibility)
+# These are now redundant since we've flattened the structure 

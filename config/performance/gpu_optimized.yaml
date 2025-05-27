@@ -1,0 +1,24 @@
+# @package _global_
+# GPU-optimized performance configuration
+
+# System configuration
+device: "cuda"
+act_store_device: "cpu"  # Keep activations on CPU to save VRAM
+seed: 42
+dtype: "float32"
+
+# Compilation and performance optimizations
+autocast: true  # autocast to autocast_dtype during training
+autocast_lm: true  # autocast lm during activation fetching
+compile_llm: true  # use torch.compile on the LLM
+llm_compilation_mode: "default"  # which torch.compile mode to use
+compile_sae: true  # use torch.compile on the SAE
+sae_compilation_mode: "default"
+
+# Model configuration
+model_kwargs: {}
+model_from_pretrained_kwargs: null
+
+# Version tracking
+sae_lens_version: null  # will be set automatically
+sae_lens_training_version: null  # will be set automatically 

@@ -1,0 +1,21 @@
+# @package _global_
+# Dataset configuration options
+
+# Dataset parameters
+dataset_path: ""
+dataset_trust_remote_code: true
+streaming: true
+is_dataset_tokenized: true
+context_size: 128
+remap_tokens_column: null
+
+# Cached activations
+use_cached_activations: false
+cached_activations_path: null  # Defaults to "activations/{dataset}/{model}/{full_hook_name}_{hook_head_index}"
+
+# Sequence position slicing
+seqpos_slice: [null]  # Determines slicing of activations when constructing batches during training
+
+# Preprocessing
+prepend_bos: true
+exclude_special_tokens: false  # bool or list[int] 

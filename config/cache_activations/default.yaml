@@ -1,0 +1,41 @@
+# @package _global_
+# Cache Activations Runner Configuration
+# Based on CacheActivationsRunnerConfig from sae_lens/config.py
+
+# Required parameters
+dataset_path: ""
+model_name: ""
+model_batch_size: 32
+hook_name: ""
+hook_layer: 0
+d_in: 512
+training_tokens: 1_000_000
+
+# Optional parameters with defaults
+context_size: -1  # Required if dataset is not tokenized
+model_class_name: "HookedTransformer"
+new_cached_activations_path: null  # defaults to "activations/{dataset}/{model}/{hook_name}
+shuffle: true
+seed: 42
+dtype: "float32"
+device: "cuda"  # will fallback to cpu if cuda not available
+buffer_size_gb: 2.0  # HF datasets writer have problems with shards > 2GB
+
+# Huggingface Integration
+hf_repo_id: null
+hf_num_shards: null
+hf_revision: "main"
+hf_is_private_repo: false
+
+# Model configuration
+model_kwargs: {}
+model_from_pretrained_kwargs: {}
+compile_llm: false
+llm_compilation_mode: null
+
+# Activation Store
+prepend_bos: true
+seqpos_slice: [null]
+streaming: true
+autocast_lm: false
+dataset_trust_remote_code: null 

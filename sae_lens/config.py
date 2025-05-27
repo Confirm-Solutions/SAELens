@@ -6,7 +6,6 @@ from typing import Any, Literal, cast
 
 import simple_parsing
 import torch
-import wandb
 from datasets import (
     Dataset,
     DatasetDict,
@@ -15,6 +14,7 @@ from datasets import (
     load_dataset,
 )
 
+import wandb
 from sae_lens import __version__, logger
 
 DTYPE_MAP = {
@@ -92,6 +92,7 @@ class LanguageModelSAERunnerConfig:
         train_batch_size_tokens (int): The batch size for training. This controls the batch size of the SAE Training loop.
         normalize_activations (str): Activation Normalization Strategy. Either none, expected_average_only_in (estimate the average activation norm and divide activations by it following Antrhopic April update -> this can be folded post training and set to None), or constant_norm_rescale (at runtime set activation norm to sqrt(d_in) and then scale up the SAE output).
         seqpos_slice (tuple): Determines slicing of activations when constructing batches during training. The slice should be (start_pos, end_pos, optional[step_size]), e.g. for Othello we sometimes use (5, -5). Note, step_size > 0.
+        remap_tokens_column (str): The column to use for the tokens. If None, the default column will be used.
         device (str): The device to use. Usually cuda.
         act_store_device (str): The device to use for the activation store. CPU is advised in order to save vram.
         seed (int): The seed to use.
@@ -185,6 +186,7 @@ class LanguageModelSAERunnerConfig:
     store_batch_size_prompts: int = 32
     normalize_activations: str = "none"  # none, expected_average_only_in (Anthropic April Update), constant_norm_rescale (Anthropic Feb Update)
     seqpos_slice: tuple[int | None, ...] = (None,)
+    remap_tokens_column: str | None = None
 
     # Misc
     device: str = "cpu"
@@ -255,6 +257,27 @@ class LanguageModelSAERunnerConfig:
     wandb_entity: str | None = None
     wandb_log_frequency: int = 10
     eval_every_n_wandb_logs: int = 100  # logs every 1000 steps.
+
+    # Additional wandb.init arguments
+    wandb_group: str | None = None
+    wandb_job_type: str = "train"
+    wandb_tags: list[str] | None = None
+    wandb_notes: str | None = None
+    wandb_mode: str = "online"  # online, offline, disabled
+    wandb_resume: str = "allow"  # allow, must, never, auto
+    wandb_dir: str | None = None
+    wandb_save_code: bool = True
+    wandb_anonymous: str | None = None
+    wandb_force: bool | None = None
+    wandb_reinit: bool | None = None
+    wandb_resume_from: str | None = None
+    wandb_fork_from: str | None = None
+    wandb_sync_tensorboard: bool = False
+    wandb_monitor_gym: bool = False
+    wandb_config_exclude_keys: list[str] | None = None
+    wandb_config_include_keys: list[str] | None = None
+    wandb_allow_val_change: bool | None = None
+    wandb_settings: dict[str, Any] | None = dict_field(default=None)
 
     # Misc
     resume: bool = False

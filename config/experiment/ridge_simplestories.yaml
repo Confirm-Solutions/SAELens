@@ -1,19 +1,31 @@
 # @package _global_
-# Ridge SAE demo experiment - small scale for testing
+# Ridge SAE experiment on SimpleStories - small scale for testing
 
 defaults:
   - /architecture: ridge
-  - /model: simplestories
+  - /model: simplestories-1.25m
+  - /dataset: default
+  - /training: default
+  - /optimization: default
+  - /evaluation: default
+  - /logging: default
+  - /performance: default
+  - /resampling: default
 
-# Training configuration - small scale for demo
-training_tokens: 1_000_000
-train_batch_size_tokens: 128
+# Dataset overrides
+dataset_path: "SimpleStories/SimpleStories"
+is_dataset_tokenized: false
 context_size: 128
+remap_tokens_column: "story"
+
+# Training overrides - small scale for demo
+training_tokens: 100_000
+train_batch_size_tokens: 128
 n_batches_in_buffer: 8
 store_batch_size_prompts: 8
 
-# Learning rate
+# Optimization overrides
 lr: 2e-4
 
-# Logging
+# Logging overrides
 wandb_log_frequency: 10 

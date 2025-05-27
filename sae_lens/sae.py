@@ -4,10 +4,11 @@ https://github.com/ArthurConmy/sae/blob/main/sae/model.py
 
 import json
 import warnings
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Literal, TypeVar, overload
+from typing import Any, Literal, TypeVar, overload
 
 import einops
 import torch
@@ -356,7 +357,7 @@ class SAE(HookedRootModule):
 
         # Check args
         for arg in args:
-            if isinstance(arg, (torch.device, str)):
+            if isinstance(arg, torch.device | str):
                 device_arg = arg
             elif isinstance(arg, torch.dtype):
                 dtype_arg = arg
@@ -613,6 +614,11 @@ class SAE(HookedRootModule):
 
         # save the config
         config = self.cfg.to_dict()
+
+        # Convert any DictConfig objects to regular dicts for JSON serialization
+        from sae_lens.sae_training_runner import _convert_dictconfig_to_dict
+
+        config = _convert_dictconfig_to_dict(config)
 
         cfg_path = path / SAE_CFG_FILENAME
         with open(cfg_path, "w") as f:

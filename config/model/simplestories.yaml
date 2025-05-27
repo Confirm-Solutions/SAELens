@@ -1,7 +1,0 @@
-# @package _global_
-model_size: "1.25M"
-model_name: "SimpleStories/SimpleStories-${model_size}"
-model_class_name: "HookedTransformer"
-hook_name: "blocks.0.hook_mlp_out"
-hook_layer: 0
-d_in: 128

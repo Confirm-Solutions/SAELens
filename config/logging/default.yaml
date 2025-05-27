@@ -1,0 +1,16 @@
+# @package _global_
+# Default logging configuration
+
+defaults:
+  - wandb
+
+# Evaluation logging
+# eval_every_n_wandb_logs is now defined in wandb.yaml
+
+# Checkpointing
+n_checkpoints: 0
+checkpoint_path: "checkpoints"
+
+# General logging
+verbose: true
+resume: false  # Resuming is no longer supported 

@@ -1,0 +1,24 @@
+# @package _global_
+# Performance configuration options
+
+# System configuration
+device: "cpu"
+act_store_device: "with_model"  # will be set by post init if with_model
+seed: 42
+dtype: "float32"
+
+# Compilation and performance optimizations
+autocast: false  # autocast to autocast_dtype during training
+autocast_lm: false  # autocast lm during activation fetching
+compile_llm: false  # use torch.compile on the LLM
+llm_compilation_mode: null  # which torch.compile mode to use
+compile_sae: false  # use torch.compile on the SAE
+sae_compilation_mode: null
+
+# Model configuration
+model_kwargs: {}
+model_from_pretrained_kwargs: null
+
+# Version tracking
+sae_lens_version: null  # will be set automatically
+sae_lens_training_version: null  # will be set automatically 

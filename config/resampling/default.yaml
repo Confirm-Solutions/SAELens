@@ -1,0 +1,8 @@
+# @package _global_
+# Resampling protocol configuration options
+
+# Ghost gradients and feature resampling
+use_ghost_grads: false  # want to change this to true on some timeline
+feature_sampling_window: 2000
+dead_feature_window: 1000  # unless this window is larger feature sampling
+dead_feature_threshold: 1e-8 

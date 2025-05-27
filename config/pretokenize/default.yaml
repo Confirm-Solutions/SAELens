@@ -1,0 +1,32 @@
+# @package _global_
+# Pretokenize Runner Configuration
+# Based on PretokenizeRunnerConfig from sae_lens/config.py
+
+# Basic configuration
+tokenizer_name: "gpt2"
+dataset_path: ""
+dataset_name: null
+dataset_trust_remote_code: null
+split: "train"
+data_files: null
+data_dir: null
+num_proc: 4
+context_size: 128
+column_name: "text"
+remap_tokens_column: null
+shuffle: true
+seed: null
+streaming: false
+pretokenize_batch_size: 1000
+
+# Special tokens
+begin_batch_token: "bos"  # int | "bos" | "eos" | "sep" | null
+begin_sequence_token: null  # int | "bos" | "eos" | "sep" | null
+sequence_separator_token: "bos"  # int | "bos" | "eos" | "sep" | null
+
+# Saving options - set either save_path for local or hf_repo_id for HuggingFace
+save_path: null
+hf_repo_id: null
+hf_num_shards: 64
+hf_revision: "main"
+hf_is_private_repo: false 

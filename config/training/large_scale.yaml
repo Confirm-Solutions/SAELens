@@ -1,0 +1,21 @@
+# @package _global_
+# Large-scale training configuration for production runs
+
+defaults:
+  - default
+
+# Training tokens and batching
+training_tokens: 50_000_000
+train_batch_size_tokens: 8192
+store_batch_size_prompts: 64
+n_batches_in_buffer: 32
+
+# Activation store parameters
+normalize_activations: "expected_average_only_in"
+
+# Loss function parameters
+l1_warm_up_steps: 5000
+
+# SAE initialization and architecture
+decoder_heuristic_init: true
+init_encoder_as_decoder_transpose: true 

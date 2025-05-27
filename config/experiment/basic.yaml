@@ -1,0 +1,18 @@
+# @package _global_
+# Basic SAE experiment template with all defaults
+
+defaults:
+  - /architecture: standard
+  - /model: default
+  - /dataset: default
+  - /training: default
+  - /optimization: default
+  - /evaluation: default
+  - /logging: default
+  - /performance: default
+  - /resampling: default
+
+# Override any specific parameters here
+# Example:
+# dataset_path: "your/dataset/path"
+# training_tokens: 2_000_000 

@@ -1,6 +1,8 @@
 # @package _global_
+# TopK SAE Architecture Configuration
+
 architecture: "topk"
+activation_fn: "topk"
 activation_fn_kwargs:
-  k: 128
-  alpha: 2
+  k: 100  # Default from LanguageModelSAERunnerConfig
 expansion_factor: 8 

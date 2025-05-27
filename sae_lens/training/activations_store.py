@@ -143,6 +143,7 @@ class ActivationsStore:
             dataset_trust_remote_code=cfg.dataset_trust_remote_code,
             seqpos_slice=cfg.seqpos_slice,
             exclude_special_tokens=exclude_special_tokens,
+            remap_tokens_column=cfg.remap_tokens_column,
         )
 
     @classmethod
@@ -204,6 +205,7 @@ class ActivationsStore:
         dataset_trust_remote_code: bool | None = None,
         seqpos_slice: tuple[int | None, ...] = (None,),
         exclude_special_tokens: torch.Tensor | None = None,
+        remap_tokens_column: str | None = None,
     ):
         self.model = model
         if model_kwargs is None:
@@ -220,7 +222,7 @@ class ActivationsStore:
             else dataset
         )
 
-        if isinstance(dataset, (Dataset, DatasetDict)):
+        if isinstance(dataset, Dataset | DatasetDict):
             self.dataset = cast(Dataset | DatasetDict, self.dataset)
             n_samples = len(self.dataset)
 
@@ -247,10 +249,16 @@ class ActivationsStore:
         self.autocast_lm = autocast_lm
         self.seqpos_slice = seqpos_slice
         self.exclude_special_tokens = exclude_special_tokens
-
+        self.remap_tokens_column = remap_tokens_column
         self.n_dataset_processed = 0
 
         self.estimated_norm_scaling_factor = None
+
+        # If remap_tokens_column is provided, we need to rename the column to "text"
+        if remap_tokens_column is not None:
+            self.is_dataset_tokenized = False
+            self.tokens_column = "text"
+            self.dataset = self.dataset.rename_column(remap_tokens_column, "text")
 
         # Check if dataset is tokenized
         dataset_sample = next(iter(self.dataset))

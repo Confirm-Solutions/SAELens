@@ -1,0 +1,36 @@
+# @package _global_
+# Training configuration options
+
+# Training tokens and batching
+training_tokens: 2_000_000
+finetuning_tokens: 0
+train_batch_size_tokens: 4096
+store_batch_size_prompts: 32
+n_batches_in_buffer: 20
+
+# Activation store parameters
+normalize_activations: "none"  # none, expected_average_only_in, constant_norm_rescale, layer_norm
+
+# Loss function parameters
+mse_loss_normalization: null
+l1_coefficient: 1e-3
+lp_norm: 1
+scale_sparsity_penalty_by_decoder_norm: false
+l1_warm_up_steps: 0
+
+# SAE initialization and architecture
+b_dec_init_method: "geometric_median"  # geometric_median, mean, or zeros
+normalize_sae_decoder: true
+noise_scale: 0.0
+apply_b_dec_to_input: true
+decoder_orthogonal_init: false
+decoder_heuristic_init: false
+init_encoder_as_decoder_transpose: false
+
+# JumpReLU specific parameters
+jumprelu_init_threshold: 0.001
+jumprelu_bandwidth: 0.001
+
+# Finetuning
+finetuning_method: null  # scale, decoder or unrotated_decoder
+from_pretrained_path: null 

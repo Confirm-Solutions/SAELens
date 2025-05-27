@@ -6,10 +6,11 @@ from pathlib import Path
 from typing import Any, cast
 
 import torch
-import wandb
+from omegaconf import DictConfig, OmegaConf
 from simple_parsing import ArgumentParser
 from transformer_lens.hook_points import HookedRootModule
 
+import wandb
 from sae_lens import logger
 from sae_lens.config import HfDataset, LanguageModelSAERunnerConfig
 from sae_lens.load_model import load_model
@@ -17,6 +18,18 @@ from sae_lens.training.activations_store import ActivationsStore
 from sae_lens.training.geometric_median import compute_geometric_median
 from sae_lens.training.sae_trainer import SAETrainer
 from sae_lens.training.training_sae import TrainingSAE, TrainingSAEConfig
+
+
+def _convert_dictconfig_to_dict(obj: Any) -> Any:
+    """Convert any DictConfig objects to regular dicts for JSON serialization."""
+    # Check if object is a DictConfig by checking its type name
+    if hasattr(obj, "__class__") and "DictConfig" in str(type(obj)):
+        return OmegaConf.to_container(obj, resolve=True)
+    if isinstance(obj, dict):
+        return {k: _convert_dictconfig_to_dict(v) for k, v in obj.items()}
+    if isinstance(obj, list | tuple):
+        return [_convert_dictconfig_to_dict(item) for item in obj]
+    return obj
 
 
 class InterruptedException(Exception):
@@ -36,6 +49,7 @@ class SAETrainingRunner:
     model: HookedRootModule
     sae: TrainingSAE
     activations_store: ActivationsStore
+    hydra_cfg: DictConfig | None
 
     def __init__(
         self,
@@ -43,6 +57,7 @@ class SAETrainingRunner:
         override_dataset: HfDataset | None = None,
         override_model: HookedRootModule | None = None,
         override_sae: TrainingSAE | None = None,
+        hydra_cfg: DictConfig | None = None,
     ):
         if override_dataset is not None:
             logger.warning(
@@ -54,6 +69,7 @@ class SAETrainingRunner:
             )
 
         self.cfg = cfg
+        self.hydra_cfg = hydra_cfg
 
         if override_model is None:
             self.model = load_model(
@@ -93,19 +109,59 @@ class SAETrainingRunner:
         """
 
         if self.cfg.log_to_wandb:
-            wandb.init(
-                project=self.cfg.wandb_project,
-                entity=self.cfg.wandb_entity,
-                config=cast(Any, self.cfg),
-                name=self.cfg.run_name,
-                id=self.cfg.wandb_id,
+            # Prepare the complete config for wandb
+            if self.hydra_cfg is not None:
+                # Use the complete hydra config, converted to a regular dict
+                complete_config = _convert_dictconfig_to_dict(self.hydra_cfg)
+            else:
+                # Fallback to the SAE config
+                complete_config = cast(Any, self.cfg)
+
+            # Prepare wandb.init arguments, filtering out None values
+            wandb_kwargs = {
+                "project": self.cfg.wandb_project,
+                "entity": self.cfg.wandb_entity,
+                "config": complete_config,
+                "name": self.cfg.run_name,
+                "id": self.cfg.wandb_id,
+                "group": self.cfg.wandb_group,
+                "job_type": self.cfg.wandb_job_type,
+                "tags": self.cfg.wandb_tags,
+                "notes": self.cfg.wandb_notes,
+                "mode": self.cfg.wandb_mode,
+                "resume": self.cfg.wandb_resume,
+                "dir": self.cfg.wandb_dir,
+                "save_code": self.cfg.wandb_save_code,
+                "anonymous": self.cfg.wandb_anonymous,
+                "force": self.cfg.wandb_force,
+                "reinit": self.cfg.wandb_reinit,
+                "resume_from": self.cfg.wandb_resume_from,
+                "fork_from": self.cfg.wandb_fork_from,
+                "sync_tensorboard": self.cfg.wandb_sync_tensorboard,
+                "monitor_gym": self.cfg.wandb_monitor_gym,
+                "config_exclude_keys": self.cfg.wandb_config_exclude_keys,
+                "config_include_keys": self.cfg.wandb_config_include_keys,
+                "allow_val_change": self.cfg.wandb_allow_val_change,
+                "settings": self.cfg.wandb_settings,
+            }
+
+            wandb.init(**wandb_kwargs)  # type: ignore
+
+        # Create a wrapper function that includes hydra_cfg
+        def save_checkpoint_with_hydra(
+            trainer: SAETrainer,
+            checkpoint_name: str,
+            wandb_aliases: list[str] | None = None,
+        ) -> None:
+            self.save_checkpoint(
+                trainer, checkpoint_name, wandb_aliases, self.hydra_cfg
             )
 
         trainer = SAETrainer(
             model=self.model,
             sae=self.sae,
             activation_store=self.activations_store,
-            save_checkpoint_fn=self.save_checkpoint,
+            save_checkpoint_fn=save_checkpoint_with_hydra,
             cfg=self.cfg,
         )
 
@@ -154,7 +210,9 @@ class SAETrainingRunner:
         except (KeyboardInterrupt, InterruptedException):
             logger.warning("interrupted, saving progress")
             checkpoint_name = str(trainer.n_training_tokens)
-            self.save_checkpoint(trainer, checkpoint_name=checkpoint_name)
+            self.save_checkpoint(
+                trainer, checkpoint_name=checkpoint_name, hydra_cfg=self.hydra_cfg
+            )
             logger.info("done saving")
             raise
 
@@ -187,9 +245,12 @@ class SAETrainingRunner:
         trainer: SAETrainer,
         checkpoint_name: str,
         wandb_aliases: list[str] | None = None,
+        hydra_cfg: DictConfig | None = None,
     ) -> None:
         base_path = Path(trainer.cfg.checkpoint_path) / checkpoint_name
         base_path.mkdir(exist_ok=True, parents=True)
+
+        logger.debug(f"Saving checkpoint '{checkpoint_name}' to {base_path.absolute()}")
 
         trainer.activations_store.save(
             str(base_path / "activations_store_state.safetensors")
@@ -206,16 +267,31 @@ class SAETrainingRunner:
             trainer.log_feature_sparsity,
         )
 
+        logger.debug(f"Saved SAE weights: {weights_path}")
+        logger.debug(f"Saved config: {cfg_path}")
+        logger.debug(f"Saved sparsity: {sparsity_path}")
+
         # let's over write the cfg file with the trainer cfg, which is a super set of the original cfg.
         # and should not cause issues but give us more info about SAEs we trained in SAE Lens.
         config = trainer.cfg.to_dict()
+
+        # Convert any DictConfig objects to regular dicts for JSON serialization
+        config = _convert_dictconfig_to_dict(config)
+
         with open(cfg_path, "w") as f:
             json.dump(config, f)
+
+        # Save the original hydra config as YAML if available
+        if hydra_cfg is not None:
+            hydra_config_path = base_path / "hydra_config.yaml"
+            with open(hydra_config_path, "w") as f:
+                OmegaConf.save(hydra_cfg, f)
 
         if trainer.cfg.log_to_wandb:
             # Avoid wandb saving errors such as:
             #   ValueError: Artifact name may only contain alphanumeric characters, dashes, underscores, and dots. Invalid name: sae_google/gemma-2b_etc
             sae_name = trainer.sae.get_name().replace("/", "__")
+            logger.debug(f"Uploading wandb artifacts for SAE: {sae_name}")
 
             # save model weights and cfg
             model_artifact = wandb.Artifact(
@@ -226,6 +302,7 @@ class SAETrainingRunner:
             model_artifact.add_file(str(weights_path))
             model_artifact.add_file(str(cfg_path))
             wandb.log_artifact(model_artifact, aliases=wandb_aliases)
+            logger.debug(f"Uploaded model artifact: {sae_name}")
 
             # save log feature sparsity
             sparsity_artifact = wandb.Artifact(
@@ -235,6 +312,9 @@ class SAETrainingRunner:
             )
             sparsity_artifact.add_file(str(sparsity_path))
             wandb.log_artifact(sparsity_artifact)
+            logger.debug(f"Uploaded sparsity artifact: {sae_name}_log_feature_sparsity")
+
+        logger.debug(f"Checkpoint '{checkpoint_name}' saved successfully")
 
 
 def _parse_cfg_args(args: Sequence[str]) -> LanguageModelSAERunnerConfig:

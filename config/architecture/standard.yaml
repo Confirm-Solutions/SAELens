@@ -1,4 +1,7 @@
 # @package _global_
+# Standard SAE Architecture Configuration
+
 architecture: "standard"
+activation_fn: "relu"
 activation_fn_kwargs: {}
 expansion_factor: 4 

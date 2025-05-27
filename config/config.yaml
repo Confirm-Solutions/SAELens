@@ -1,21 +1,12 @@
-# Base configuration for SAE training
-# This config corresponds to the settings in train_ridge_sae.py
-
 defaults:
-  - experiment: ridge_demo
   - _self_
+  - experiment: basic
+  - launcher: base
+  - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: colorlog
 
-# Dataset configuration
-dataset_path: "apollo-research/roneneldan-TinyStories-tokenizer-gpt2"
-is_dataset_tokenized: true
-streaming: true
-
-# System configuration
-device: "auto"  # Will be set to cuda if available, else cpu
-dtype: "float32"
-seed: 42
-
-# Logging configuration
-log_to_wandb: true
-wandb_entity: null  # Will be set from environment variable
-wandb_project: null  # Will be set from environment variable 
+hydra:
+  job:
+    env_set:
+      TOKENIZERS_PARALLELISM: "false"
+      SAE_LENS_LOG_LEVEL: "DEBUG"

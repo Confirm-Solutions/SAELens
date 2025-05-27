@@ -1,0 +1,14 @@
+# @package _global_
+# Optimization configuration options
+
+# Adam optimizer parameters
+adam_beta1: 0.0
+adam_beta2: 0.999
+
+# Learning rate schedule
+lr: 3e-4
+lr_scheduler_name: "constant"  # constant, cosineannealing, cosineannealingwarmrestarts
+lr_warm_up_steps: 0
+lr_end: null  # only used for cosine annealing, default is lr / 10
+lr_decay_steps: 0
+n_restart_cycles: 1  # used only for cosineannealingwarmrestarts 
