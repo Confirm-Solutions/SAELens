@@ -1,7 +1,0 @@
-# @package _global_
-
-defaults:
-  - default
-
-model_name: "SimpleStories/SimpleStories-35M"
-d_in: 512

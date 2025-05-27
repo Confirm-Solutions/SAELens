@@ -1,9 +1,0 @@
-# @package _global_
-# Ridge SAE Architecture Configuration
-
-architecture: "ridge"
-activation_fn: null
-activation_fn_kwargs:
-  k: 128
-  alpha: 2
-expansion_factor: 4 

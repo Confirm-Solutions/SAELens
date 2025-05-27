@@ -1,6 +1,0 @@
-# @package _global_
-# Gated SAE Architecture Configuration
-architecture: "gated"
-activation_fn: "relu"
-activation_fn_kwargs: {}
-expansion_factor: 4

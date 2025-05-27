@@ -1,7 +1,0 @@
-# @package _global_
-
-defaults:
-  - default
-
-model_name: "EleutherAI/pythia-70m"
-d_in: 512 

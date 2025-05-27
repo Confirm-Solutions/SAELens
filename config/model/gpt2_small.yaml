@@ -1,7 +1,0 @@
-# @package _global_
-
-defaults:
-  - default
-
-model_name: "gpt2"
-d_in: 3072 
