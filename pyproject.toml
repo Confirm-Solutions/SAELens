@@ -89,7 +89,7 @@ dev = [
     "tabulate>=0.9.0",
     "ruff>=0.7.4",
     "eai-sparsify>=1.1.1",
-    "ai_commit @ git+https://github.com/sidnb13/ai_commit",
+    "ai_commit @ git+https://github.com/sidnb13/toolbox.git#subdirectory=src/ai_commit",
 ]
 mamba = [
     "mamba-lens>=0.0.4",
