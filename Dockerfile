@@ -3,7 +3,6 @@ ARG GIT_NAME
 ARG GIT_EMAIL
 ARG PROJECT_NAME
 ARG VARIANT=cuda
-ARG ENV_VARIANT=default
 
 FROM ghcr.io/${GIT_NAME}/ml-base:py${PYTHON_VERSION}-${VARIANT}
 
@@ -13,7 +12,6 @@ ARG GIT_NAME
 ARG GIT_EMAIL
 ARG PROJECT_NAME
 ARG VARIANT
-ARG ENV_VARIANT
 ARG SSH_KEY_NAME
 
 # Define ENV vars to make ARG values available at runtime
@@ -31,22 +29,14 @@ RUN git config --global user.email "${GIT_EMAIL}" && \
 # Copy project files for uv
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies using uv with appropriate extras
-RUN echo "Installing dependencies with uv..." && \
-    if [ "${VARIANT}" = "cpu" ]; then \
-        uv sync --locked --extra dev --extra cpu; \
-    elif [ "${VARIANT}" = "cuda" ]; then \
-        uv sync --locked --extra dev --extra cuda; \
-    elif [ "${VARIANT}" = "cuda-nightly" ]; then \
-        uv sync --locked --extra dev --extra cuda-nightly; \
-    else \
-        uv sync --locked --extra dev --extra cuda; \
-    fi
+# Install dependencies using uv with automatic torch backend selection
+RUN echo "Installing dependencies with uv and UV_TORCH_BACKEND=auto..." && \
+    uv sync --extra dev
 
-# Install ray if needed for the environment variant
-RUN if [ "${ENV_VARIANT}" = "ray" ]; then \
-        echo "Installing ray extras..." && \
-        uv sync --locked --extra ray; \
+# Install PyTorch nightly for ARM64 (GH200) machines, override stable versions
+RUN if [ "$(uname -m)" = "aarch64" ]; then \
+        echo "Installing PyTorch nightly for ARM64 with uv..." && \
+        uv pip install --pre --force-reinstall torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu128; \
     fi
 
 # Always install ipdb for debugging

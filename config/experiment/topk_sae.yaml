@@ -1,0 +1,25 @@
+# @package _global_
+# TinyStories SAE experiment with SimpleStories-1.25M model
+
+# Model configuration for TinyStories
+model_name: "pythia-70m"
+d_in: 512
+
+# Standard SAE architecture
+architecture: "topk"
+activation_fn: null
+activation_fn_kwargs:
+  k: 32
+expansion_factor: 8
+
+# Dataset
+dataset_path: "togethercomputer/RedPajama-Data-1T-Sample"
+is_dataset_tokenized: false
+column_name: text
+
+# Training settings
+training_tokens: 10_000_000
+train_batch_size_tokens: 2048
+
+# Wandb project
+wandb_project: "pythia-70m-redpajama" 

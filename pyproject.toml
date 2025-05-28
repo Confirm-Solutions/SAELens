@@ -1,7 +1,8 @@
 # PyTorch is now automatically selected based on platform:
 # - CPU builds on macOS/Windows
 # - CUDA builds on Linux
-# 
+# - Nightly CUDA builds on Linux (aarch64)
+#
 # For manual control, you can still use: UV_TORCH_BACKEND=auto uv sync
 
 [project]
@@ -11,7 +12,6 @@ description = "Training and Analyzing Sparse Autoencoders (SAEs)"
 authors = [
     { name = "Joseph Bloom" }
 ]
-readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 keywords = [
@@ -90,12 +90,10 @@ dev = [
     "ruff>=0.7.4",
     "eai-sparsify>=1.1.1",
     "ai_commit @ git+https://github.com/sidnb13/toolbox.git#subdirectory=src/ai_commit",
+    "hydra-ray-jobs-launcher @ git+https://github.com/sidnb13/hydra#egg=hydra-ray-jobs-launcher&subdirectory=plugins/hydra_ray_jobs_launcher",
 ]
 mamba = [
     "mamba-lens>=0.0.4",
-]
-reft = [
-    "pyreft>=0.0.1",
 ]
 flash-attn = [
     "flash-attn>=2.0.0",
@@ -152,12 +150,12 @@ ignore = ["**/wandb/**"]
 # PyTorch wheel configuration for uv
 [tool.uv.sources]
 torch = [
-    { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
-    { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },
+    { index = "pytorch-cpu", marker = "sys_platform != 'linux' or platform_machine == 'aarch64'" },
+    { index = "pytorch-cu128", marker = "sys_platform == 'linux' and platform_machine != 'aarch64'" },
 ]
 torchvision = [
-    { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
-    { index = "pytorch-cu128", marker = "sys_platform == 'linux'" },
+    { index = "pytorch-cpu", marker = "sys_platform != 'linux' or platform_machine == 'aarch64'" },
+    { index = "pytorch-cu128", marker = "sys_platform == 'linux' and platform_machine != 'aarch64'" },
 ]
 
 [[tool.uv.index]]

@@ -3,7 +3,7 @@
 
 defaults:
   - _self_
-  - experiment: basic
+  - experiment: null
   - launcher: base
   - override hydra/job_logging: colorlog
   - override hydra/hydra_logging: colorlog
@@ -119,7 +119,7 @@ n_restart_cycles: 1  # used only for cosineannealingwarmrestarts
 # PERFORMANCE CONFIGURATION
 # ============================================================================
 # System configuration
-device: "cpu"
+device: "cuda"
 act_store_device: "with_model"  # will be set by post init if with_model
 seed: 42
 dtype: "float32"

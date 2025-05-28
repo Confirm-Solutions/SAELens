@@ -260,26 +260,33 @@ class ActivationsStore:
             self.tokens_column = "text"
             self.dataset = self.dataset.rename_column(remap_tokens_column, "text")
 
-        # Check if dataset is tokenized
-        dataset_sample = next(iter(self.dataset))
-
-        # check if it's tokenized
-        if "tokens" in dataset_sample:
+        # Determine tokens column from dataset column names
+        available_columns = self.dataset.column_names # type: ignore
+        if "tokens" in available_columns: # type: ignore
             self.is_dataset_tokenized = True
             self.tokens_column = "tokens"
-        elif "input_ids" in dataset_sample:
+        elif "input_ids" in available_columns: # type: ignore
             self.is_dataset_tokenized = True
             self.tokens_column = "input_ids"
-        elif "text" in dataset_sample:
+        elif "text" in available_columns: # type: ignore
             self.is_dataset_tokenized = False
             self.tokens_column = "text"
-        elif "problem" in dataset_sample:
+        elif "problem" in available_columns: # type: ignore
             self.is_dataset_tokenized = False
             self.tokens_column = "problem"
         else:
             raise ValueError(
-                "Dataset must have a 'tokens', 'input_ids', 'text', or 'problem' column."
+                f"Dataset must have a 'tokens', 'input_ids', 'text', or 'problem' column. Available columns: {available_columns}"
             )
+
+        # Filter dataset to only include the tokens column to avoid casting errors from metadata fields
+        self.dataset = self.dataset.remove_columns(
+            [col for col in available_columns if col != self.tokens_column] # type: ignore
+        )
+
+        # Get a sample to check tokenization details
+        dataset_sample = next(iter(self.dataset))
+
         if self.is_dataset_tokenized:
             ds_context_size = len(dataset_sample[self.tokens_column])
             if ds_context_size < self.context_size:
