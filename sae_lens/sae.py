@@ -41,6 +41,12 @@ from sae_lens.toolkit.pretrained_saes_directory import (
 
 T = TypeVar("T", bound="SAE")
 
+_POSTACT_FN_MAP = {
+    "relu": nn.ReLU,
+    "none": nn.Identity,
+    "sigmoid": nn.Sigmoid,
+}
+
 
 @dataclass
 class SAEConfig:
@@ -826,11 +832,22 @@ def get_activation_fn(
         if "k" not in kwargs:
             raise ValueError("TopK activation function requires a k value.")
         k = kwargs.get("k", 1)  # Default k to 1 if not provided
-        postact_fn = kwargs.get(
-            "postact_fn", nn.ReLU()
-        )  # Default post-activation to ReLU if not provided
 
-        return TopK(k, postact_fn)
+        # postact_fn
+        postact_option = kwargs.get("postact_fn", "relu")
+        if isinstance(postact_option, str):
+            postact_key = postact_option.lower()
+            if postact_key not in _POSTACT_FN_MAP:
+                raise ValueError(f"Unknown post-activation function: {postact_option}")
+            postact_fn = _POSTACT_FN_MAP[postact_key]()
+        elif callable(postact_option):
+            postact_fn = postact_option
+        else:
+            raise ValueError(
+                f"postact_fn must be a string or callable, got {type(postact_option)}"
+            )
+
+        return TopK(k, postact_fn)  # type: ignore[arg-type]
     raise ValueError(f"Unknown activation function: {activation_fn}")
 
 
