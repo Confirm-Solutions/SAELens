@@ -1,16 +1,16 @@
 # @package _global_
-# TinyStories SAE experiment with SimpleStories-1.25M model
+# TinyStories Ridge experiment with SimpleStories-1.25M model
 
 # Model configuration for TinyStories
-model_name: "pythia-70m"
-d_in: 512
+model_name: "pythia-14m"
+d_in: 128
 
-# Standard SAE architecture
-architecture: "topk"
+# Ridge architecture
+architecture: "ridge"
 activation_fn: null
 activation_fn_kwargs:
   k: 32
-  postact_fn: "relu"
+  alpha: 2
 expansion_factor: 64
 
 # Dataset
@@ -19,8 +19,8 @@ is_dataset_tokenized: false
 column_name: text
 
 # Training settings
-training_tokens: 10_000_000
-train_batch_size_tokens: 2048
+training_tokens: 1_000_000
+train_batch_size_tokens: 32
 
 # Wandb project
 wandb_project: "pythia-70m-redpajama" 

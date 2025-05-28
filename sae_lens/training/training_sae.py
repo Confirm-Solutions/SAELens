@@ -357,13 +357,17 @@ class TrainingSAE(SAE):
         penalty_diag, topk_indices = self.get_topk_penalty_diag(scores)
 
         # (B, d_in, d_sae)
-        dict_expanded = self.dictionary.unsqueeze(0).expand(x.shape[0], -1, -1)
+        # dict_expanded = self.dictionary.unsqueeze(0).expand(x.shape[0], -1, -1)
         # (B, d_in, k)
-        X = torch.gather(
-            dict_expanded,
-            2,
-            topk_indices.unsqueeze(1).expand(-1, self.dictionary.shape[0], -1),
-        )
+        # X = torch.gather(
+        #     dict_expanded,
+        #     2,
+        #     topk_indices.unsqueeze(1).expand(-1, self.dictionary.shape[0], -1),
+        # )
+
+        # (B, k, d_in)
+        # Faster version, avoid intermediate big tensor
+        X = self.dictionary.t()[topk_indices].transpose(1, 2)
 
         reconstruction, masked_beta = RidgeProjection.apply(X, sae_in, penalty_diag)  # type: ignore
 
@@ -372,7 +376,7 @@ class TrainingSAE(SAE):
         )
         full_beta.scatter_(-1, topk_indices, masked_beta.squeeze())
 
-        return reconstruction.squeeze(), full_beta, sae_in  # type: ignore
+        return reconstruction.squeeze(-1), full_beta, sae_in  # type: ignore
 
     def encode_with_hidden_pre_jumprelu(
         self, x: Float[torch.Tensor, "... d_in"]
@@ -452,6 +456,7 @@ class TrainingSAE(SAE):
     ) -> TrainStepOutput:
         # do a forward pass to get SAE out, but we also need the
         # hidden pre.
+
         if self.cfg.architecture == "ridge":
             reconstruction, feature_acts, hidden_pre = self.encode_with_hidden_pre_fn(  # type: ignore
                 sae_in

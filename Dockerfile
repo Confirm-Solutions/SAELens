@@ -2,7 +2,7 @@ ARG PYTHON_VERSION
 ARG GIT_NAME
 ARG GIT_EMAIL
 ARG PROJECT_NAME
-ARG VARIANT=cuda
+ARG VARIANT
 
 FROM ghcr.io/${GIT_NAME}/ml-base:py${PYTHON_VERSION}-${VARIANT}
 
@@ -14,39 +14,29 @@ ARG PROJECT_NAME
 ARG VARIANT
 ARG SSH_KEY_NAME
 
-# Define ENV vars to make ARG values available at runtime
-ENV PATH="/usr/local/bin:/root/.local/bin:/opt/conda/bin:${PATH}"
-
 WORKDIR /workspace/${PROJECT_NAME}
 
-# Ensure the virtual environment is activated by adding it to PATH
-ENV PATH="/workspace/${PROJECT_NAME}/.venv/bin:${PATH}"
+# Use system Python environment instead of virtual environment
+ENV UV_SYSTEM_PYTHON=1
+# Let uv automatically select PyTorch backend based on platform
+ENV UV_TORCH_BACKEND=auto
 
 # Setup Git configuration
 RUN git config --global user.email "${GIT_EMAIL}" && \
     git config --global user.name "${GIT_NAME}"
 
-# Copy project files for uv
-COPY pyproject.toml uv.lock ./
-
-# Install dependencies using uv with automatic torch backend selection
-RUN echo "Installing dependencies with uv and UV_TORCH_BACKEND=auto..." && \
-    uv sync --extra dev
-
-# Install PyTorch nightly for ARM64 (GH200) machines, override stable versions
-RUN if [ "$(uname -m)" = "aarch64" ]; then \
-        echo "Installing PyTorch nightly for ARM64 with uv..." && \
-        uv pip install --pre --force-reinstall torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu128; \
-    fi
-
-# Always install ipdb for debugging
-RUN uv pip install ipdb
-
+# Copy only the scripts we need
 COPY scripts/ray-init.sh /usr/local/bin/ray-init.sh
-RUN chmod +x /usr/local/bin/ray-init.sh
-
 COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/ray-init.sh /usr/local/bin/entrypoint.sh
+
+# Copy only dependency files
+COPY pyproject.toml uv.lock* ./
+
+# Install everything to system Python
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system -e '.[dev]' && \
+    uv pip install --system ipdb
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["zsh"]
