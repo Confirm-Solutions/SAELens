@@ -267,6 +267,7 @@ class LanguageModelSAERunnerConfig:
     wandb_resume: str = "allow"  # allow, must, never, auto
     wandb_dir: str | None = None
     wandb_save_code: bool = True
+    wandb_log_artifacts: bool = False
     wandb_anonymous: str | None = None
     wandb_force: bool | None = None
     wandb_reinit: bool | None = None

@@ -287,7 +287,7 @@ class SAETrainingRunner:
             with open(hydra_config_path, "w") as f:
                 OmegaConf.save(hydra_cfg, f)
 
-        if trainer.cfg.log_to_wandb:
+        if trainer.cfg.log_to_wandb and trainer.cfg.wandb_log_artifacts:
             # Avoid wandb saving errors such as:
             #   ValueError: Artifact name may only contain alphanumeric characters, dashes, underscores, and dots. Invalid name: sae_google/gemma-2b_etc
             sae_name = trainer.sae.get_name().replace("/", "__")

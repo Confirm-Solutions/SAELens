@@ -11,7 +11,7 @@ activation_fn: null
 activation_fn_kwargs:
   k: 32
   alpha: 2
-expansion_factor: 1
+expansion_factor: 64
 
 # Dataset
 dataset_path: "togethercomputer/RedPajama-Data-1T-Sample"
@@ -19,8 +19,8 @@ is_dataset_tokenized: false
 column_name: text
 
 # Training settings
-training_tokens: 1_000_000
-train_batch_size_tokens: 32
+training_tokens: 10_000_000
+train_batch_size_tokens: 2048
 
 # Wandb project
 wandb_project: "pythia-70m-redpajama" 

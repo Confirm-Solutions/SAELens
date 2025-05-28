@@ -1,0 +1,36 @@
+defaults:
+  - _self_
+  - override hydra/launcher: ray_jobs
+  - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: colorlog
+
+hydra:
+  launcher:
+    poll_jobs: false
+    entrypoint_num_gpus: 1
+    enable_gpu_blocking: false
+    entrypoint_resources:
+      saelens-main: 1
+  job:
+    env_set:
+      TOKENIZERS_PARALLELISM: "false"
+      SAE_LENS_LOG_LEVEL: "DEBUG"
+
+sae_checkpoint_path: /path/to/your/sae_checkpoint.pt
+model_name: gpt2-small
+hook_name: blocks.10.hook_resid_pre
+dataset: togethercomputer/RedPajama-Data-1T-Sample
+context_size: 128
+device: cuda
+output_dir: eval_results
+batch_size_prompts: 16
+n_eval_reconstruction_batches: 10
+n_eval_sparsity_variance_batches: 1
+compute_kl: true
+compute_ce_loss: true
+compute_l2_norms: true
+compute_sparsity_metrics: true
+compute_variance_metrics: true
+compute_featurewise_density_statistics: true
+compute_featurewise_weight_based_metrics: true
+verbose: false 

@@ -4,11 +4,17 @@
 defaults:
   - _self_
   - experiment: null
-  - launcher: base
+  - override hydra/launcher: ray_jobs
   - override hydra/job_logging: colorlog
   - override hydra/hydra_logging: colorlog
 
 hydra:
+  launcher:
+    poll_jobs: false
+    entrypoint_num_gpus: 1
+    enable_gpu_blocking: false
+    entrypoint_resources:
+      saelens-main: 1
   job:
     env_set:
       TOKENIZERS_PARALLELISM: "false"

@@ -20,7 +20,7 @@ column_name: text
 
 # Training settings
 training_tokens: 10_000_000
-train_batch_size_tokens: 2048
+train_batch_size_tokens: 4096
 
 # Wandb project
 wandb_project: "pythia-70m-redpajama" 
