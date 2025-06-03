@@ -1,5 +1,4 @@
 # @package _global_
-# TinyStories SAE experiment with SimpleStories-1.25M model
 
 # Model configuration for TinyStories
 model_name: "pythia-70m"
@@ -19,8 +18,10 @@ is_dataset_tokenized: false
 column_name: text
 
 # Training settings
-training_tokens: 10_000_000
+training_tokens: 100_000_000
 train_batch_size_tokens: 4096
+lr: 1e-4
+lr_scheduler_name: "constant"
 
 # Wandb project
 wandb_project: "pythia-70m-redpajama" 

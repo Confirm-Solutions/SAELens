@@ -1,5 +1,4 @@
 # @package _global_
-# TinyStories Ridge experiment with SimpleStories-1.25M model
 
 # Model configuration for TinyStories
 model_name: "pythia-70m"

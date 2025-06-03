@@ -1,0 +1,3 @@
+[submodule "sae_vis"]
+	path = sae_vis
+	url = git@github.com:Confirm-Solutions/sae_vis.git
