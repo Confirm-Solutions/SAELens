@@ -20,6 +20,8 @@ column_name: text
 # Training settings
 training_tokens: 10_000_000
 train_batch_size_tokens: 2048
+store_batch_size_prompts: 16
+n_batches_in_buffer: 16
 
 # Wandb project
 wandb_project: "pythia-14m-redpajama" 
