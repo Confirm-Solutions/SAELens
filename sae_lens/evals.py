@@ -236,7 +236,10 @@ def run_evals(
     else:
         feature_metrics = {}
 
-    if eval_config.compute_featurewise_weight_based_metrics:
+    if (
+        eval_config.compute_featurewise_weight_based_metrics
+        and sae.cfg.architecture != "ridge"
+    ):
         feature_metrics |= get_featurewise_weight_based_metrics(sae)
 
     if len(all_metrics) == 0:

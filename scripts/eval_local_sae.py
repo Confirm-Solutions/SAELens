@@ -98,7 +98,10 @@ def main(cfg: DictConfig):
     )
 
     # Save results
-    output_dir = Path(cfg.output_dir)
+    checkpoint_dir = Path(cfg.sae_checkpoint_path)
+    if checkpoint_dir.is_file():
+        checkpoint_dir = checkpoint_dir.parent
+    output_dir = checkpoint_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     result = {
         "sae_checkpoint_path": cfg.sae_checkpoint_path,

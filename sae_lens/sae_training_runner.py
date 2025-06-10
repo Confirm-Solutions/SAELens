@@ -12,24 +12,16 @@ from transformer_lens.hook_points import HookedRootModule
 
 import wandb
 from sae_lens import logger
-from sae_lens.config import HfDataset, LanguageModelSAERunnerConfig
+from sae_lens.config import (
+    HfDataset,
+    LanguageModelSAERunnerConfig,
+    _convert_dictconfig_to_dict,
+)
 from sae_lens.load_model import load_model
 from sae_lens.training.activations_store import ActivationsStore
 from sae_lens.training.geometric_median import compute_geometric_median
 from sae_lens.training.sae_trainer import SAETrainer
 from sae_lens.training.training_sae import TrainingSAE, TrainingSAEConfig
-
-
-def _convert_dictconfig_to_dict(obj: Any) -> Any:
-    """Convert any DictConfig objects to regular dicts for JSON serialization."""
-    # Check if object is a DictConfig by checking its type name
-    if hasattr(obj, "__class__") and "DictConfig" in str(type(obj)):
-        return OmegaConf.to_container(obj, resolve=True)
-    if isinstance(obj, dict):
-        return {k: _convert_dictconfig_to_dict(v) for k, v in obj.items()}
-    if isinstance(obj, list | tuple):
-        return [_convert_dictconfig_to_dict(item) for item in obj]
-    return obj
 
 
 class InterruptedException(Exception):

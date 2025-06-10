@@ -23,6 +23,7 @@ from sae_lens.config import (
     SAE_CFG_FILENAME,
     SAE_WEIGHTS_FILENAME,
     SPARSITY_FILENAME,
+    _convert_dictconfig_to_dict,
 )
 from sae_lens.toolkit.pretrained_sae_loaders import (
     NAMED_PRETRAINED_SAE_LOADERS,
@@ -622,8 +623,6 @@ class SAE(HookedRootModule):
         config = self.cfg.to_dict()
 
         # Convert any DictConfig objects to regular dicts for JSON serialization
-        from sae_lens.sae_training_runner import _convert_dictconfig_to_dict
-
         config = _convert_dictconfig_to_dict(config)
 
         cfg_path = path / SAE_CFG_FILENAME

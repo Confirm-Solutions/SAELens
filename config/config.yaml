@@ -4,17 +4,11 @@
 defaults:
   - _self_
   - experiment: null
-  - override hydra/launcher: ray_jobs
+  - launcher: null
   - override hydra/job_logging: colorlog
   - override hydra/hydra_logging: colorlog
 
 hydra:
-  launcher:
-    poll_jobs: false
-    entrypoint_num_gpus: 1
-    enable_gpu_blocking: false
-    entrypoint_resources:
-      saelens-main: 1
   job:
     env_set:
       TOKENIZERS_PARALLELISM: "false"
@@ -34,11 +28,11 @@ hook_head_index: null
 
 # Model dimensions
 d_in: 512
-d_sae: null  # Will be calculated from expansion_factor if not set
+d_sae: null # Will be calculated from expansion_factor if not set
 
 # Model runtime options
 model_kwargs: {}
-model_from_pretrained_kwargs: null  # Will be set automatically based on model_class_name
+model_from_pretrained_kwargs: null # Will be set automatically based on model_class_name
 
 # ============================================================================
 # ARCHITECTURE CONFIGURATION
@@ -60,14 +54,14 @@ remap_tokens_column: null
 
 # Cached activations
 use_cached_activations: false
-cached_activations_path: null  # Defaults to "activations/{dataset}/{model}/{full_hook_name}_{hook_head_index}"
+cached_activations_path: null # Defaults to "activations/{dataset}/{model}/{full_hook_name}_{hook_head_index}"
 
 # Sequence position slicing
-seqpos_slice: [null]  # Determines slicing of activations when constructing batches during training
+seqpos_slice: [null] # Determines slicing of activations when constructing batches during training
 
 # Preprocessing
 prepend_bos: true
-exclude_special_tokens: false  # bool or list[int]
+exclude_special_tokens: false # bool or list[int]
 
 # ============================================================================
 # TRAINING CONFIGURATION
@@ -80,7 +74,7 @@ store_batch_size_prompts: 32
 n_batches_in_buffer: 8
 
 # Activation store parameters
-normalize_activations: "none"  # none, expected_average_only_in, constant_norm_rescale, layer_norm
+normalize_activations: "none" # none, expected_average_only_in, constant_norm_rescale, layer_norm
 
 # Loss function parameters
 mse_loss_normalization: null
@@ -90,7 +84,7 @@ scale_sparsity_penalty_by_decoder_norm: false
 l1_warm_up_steps: 0
 
 # SAE initialization and architecture
-b_dec_init_method: "geometric_median"  # geometric_median, mean, or zeros
+b_dec_init_method: "geometric_median" # geometric_median, mean, or zeros
 normalize_sae_decoder: true
 noise_scale: 0.0
 apply_b_dec_to_input: true
@@ -103,7 +97,7 @@ jumprelu_init_threshold: 0.001
 jumprelu_bandwidth: 0.001
 
 # Finetuning
-finetuning_method: null  # scale, decoder or unrotated_decoder
+finetuning_method: null # scale, decoder or unrotated_decoder
 from_pretrained_path: null
 
 # ============================================================================
@@ -115,48 +109,48 @@ adam_beta2: 0.999
 
 # Learning rate schedule
 lr: 3e-4
-lr_scheduler_name: "constant"  # constant, cosineannealing, cosineannealingwarmrestarts
+lr_scheduler_name: "constant" # constant, cosineannealing, cosineannealingwarmrestarts
 lr_warm_up_steps: 0
-lr_end: null  # only used for cosine annealing, default is lr / 10
+lr_end: null # only used for cosine annealing, default is lr / 10
 lr_decay_steps: 0
-n_restart_cycles: 1  # used only for cosineannealingwarmrestarts
+n_restart_cycles: 1 # used only for cosineannealingwarmrestarts
 
 # ============================================================================
 # PERFORMANCE CONFIGURATION
 # ============================================================================
 # System configuration
 device: "cuda"
-act_store_device: "with_model"  # will be set by post init if with_model
+act_store_device: "with_model" # will be set by post init if with_model
 seed: 42
 dtype: "float32"
 
 # Compilation and performance optimizations
-autocast: false  # autocast to autocast_dtype during training
-autocast_lm: false  # autocast lm during activation fetching
-compile_llm: false  # use torch.compile on the LLM
-llm_compilation_mode: null  # which torch.compile mode to use
-compile_sae: false  # use torch.compile on the SAE
+autocast: false # autocast to autocast_dtype during training
+autocast_lm: false # autocast lm during activation fetching
+compile_llm: false # use torch.compile on the LLM
+llm_compilation_mode: null # which torch.compile mode to use
+compile_sae: false # use torch.compile on the SAE
 sae_compilation_mode: null
 
 # Version tracking
-sae_lens_version: null  # will be set automatically
-sae_lens_training_version: null  # will be set automatically
+sae_lens_version: null # will be set automatically
+sae_lens_training_version: null # will be set automatically
 
 # ============================================================================
 # EVALUATION CONFIGURATION
 # ============================================================================
 # Evaluation parameters
 n_eval_batches: 10
-eval_batch_size_prompts: null  # useful if evals cause OOM
-eval_every_n_wandb_logs: 100  # logs every 1000 steps
+eval_batch_size_prompts: null # useful if evals cause OOM
+eval_every_n_wandb_logs: 100 # logs every 1000 steps
 
 # ============================================================================
 # RESAMPLING CONFIGURATION
 # ============================================================================
 # Ghost gradients and feature resampling
-use_ghost_grads: false  # want to change this to true on some timeline
+use_ghost_grads: false # want to change this to true on some timeline
 feature_sampling_window: 2000
-dead_feature_window: 1000  # unless this window is larger feature sampling
+dead_feature_window: 1000 # unless this window is larger feature sampling
 dead_feature_threshold: 1e-8
 
 # ============================================================================
@@ -178,8 +172,8 @@ wandb_tags: null
 wandb_notes: null
 wandb_log_frequency: 10
 wandb_save_code: true
-wandb_mode: "online"  # online, offline, disabled
-wandb_resume: "allow"  # allow, must, never, auto
+wandb_mode: "online" # online, offline, disabled
+wandb_resume: "allow" # allow, must, never, auto
 wandb_dir: null
 wandb_anonymous: null
 wandb_force: null
@@ -199,16 +193,16 @@ checkpoint_path: "checkpoints"
 
 # General logging
 verbose: true
-resume: false  # Resuming is no longer supported
+resume: false # Resuming is no longer supported
 
 # ============================================================================
 # CACHE ACTIVATIONS CONFIGURATION
 # ============================================================================
 # Cache activations runner configuration
 model_batch_size: 32
-new_cached_activations_path: null  # defaults to "activations/{dataset}/{model}/{hook_name}
+new_cached_activations_path: null # defaults to "activations/{dataset}/{model}/{hook_name}
 shuffle: true
-buffer_size_gb: 2.0  # HF datasets writer have problems with shards > 2GB
+buffer_size_gb: 2.0 # HF datasets writer have problems with shards > 2GB
 
 # Huggingface Integration for cached activations
 hf_repo_id: null
@@ -230,9 +224,9 @@ column_name: "text"
 pretokenize_batch_size: 1000
 
 # Special tokens for pretokenization
-begin_batch_token: "bos"  # int | "bos" | "eos" | "sep" | null
-begin_sequence_token: null  # int | "bos" | "eos" | "sep" | null
-sequence_separator_token: "bos"  # int | "bos" | "eos" | "sep" | null
+begin_batch_token: "bos" # int | "bos" | "eos" | "sep" | null
+begin_sequence_token: null # int | "bos" | "eos" | "sep" | null
+sequence_separator_token: "bos" # int | "bos" | "eos" | "sep" | null
 
 # Saving options for pretokenization - set either save_path for local or hf_repo_id for HuggingFace
 save_path: null

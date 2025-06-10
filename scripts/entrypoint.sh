@@ -103,6 +103,7 @@ fi
 
 if command -v ai-commit &>/dev/null; then
     echo "🔧 Running ai-commit install-hook..."
+    uv pip uninstall asyncio
     ai-commit install-hook
 else
     echo "⚠️  ai-commit command not found, skipping AI commit hook installation"

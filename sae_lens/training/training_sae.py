@@ -678,7 +678,8 @@ class TrainingSAE(SAE):
         return sae
 
     def initialize_weights_complex(self):
-        """ """
+        if self.cfg.architecture == "ridge":
+            return
 
         if self.cfg.decoder_orthogonal_init:
             self.W_dec.data = nn.init.orthogonal_(self.W_dec.data.T).T
@@ -706,7 +707,7 @@ class TrainingSAE(SAE):
                 )
             )
 
-        if self.cfg.normalize_sae_decoder and self.cfg.architecture != "ridge":
+        if self.cfg.normalize_sae_decoder:
             with torch.no_grad():
                 # Anthropic normalize this to have unit columns
                 self.set_decoder_norm_to_unit_norm()

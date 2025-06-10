@@ -1,3 +1,4 @@
+import datetime
 import json
 import math
 import os
@@ -13,6 +14,7 @@ from datasets import (
     IterableDatasetDict,
     load_dataset,
 )
+from omegaconf import OmegaConf
 
 import wandb
 from sae_lens import __version__, logger
@@ -34,6 +36,18 @@ HfDataset = DatasetDict | Dataset | IterableDatasetDict | IterableDataset
 SPARSITY_FILENAME = "sparsity.safetensors"
 SAE_WEIGHTS_FILENAME = "sae_weights.safetensors"
 SAE_CFG_FILENAME = "cfg.json"
+
+
+def _convert_dictconfig_to_dict(obj: Any) -> Any:
+    """Convert any DictConfig objects to regular dicts for JSON serialization."""
+    # Check if object is a DictConfig by checking its type name
+    if hasattr(obj, "__class__") and "DictConfig" in str(type(obj)):
+        return OmegaConf.to_container(obj, resolve=True)
+    if isinstance(obj, dict):
+        return {k: _convert_dictconfig_to_dict(v) for k, v in obj.items()}
+    if isinstance(obj, list | tuple):
+        return [_convert_dictconfig_to_dict(item) for item in obj]
+    return obj
 
 
 # calling this "json_dict" so error messages will reference "json_dict" being invalid
@@ -385,7 +399,12 @@ class LanguageModelSAERunnerConfig:
             unique_id = cast(
                 Any, wandb
             ).util.generate_id()  # not sure why this type is erroring
-        self.checkpoint_path = f"{self.checkpoint_path}/{unique_id}"
+
+        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y%m%d_%H%M%S"
+        )
+        checkpoint_name = f"{self.architecture}_{unique_id}_{timestamp}"
+        self.checkpoint_path = f"{self.checkpoint_path}/{checkpoint_name}"
 
         if self.verbose:
             logger.info(

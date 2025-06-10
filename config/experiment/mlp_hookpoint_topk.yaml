@@ -1,0 +1,26 @@
+# @package _global_
+
+defaults:
+  - topk_sae
+  - override /hydra/sweeper: list
+
+hydra:
+  sweeper:
+    list_params:
+      hook_name:
+        - blocks.0.hook_mlp_out
+        - blocks.1.hook_mlp_out
+        - blocks.2.hook_mlp.out
+        - blocks.3.hook_mlp.out
+        - blocks.4.hook_mlp.out
+        - blocks.5.hook_mlp.out
+      hook_layer:
+        - 0
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+
+wandb_group: "mlp_hookpoints_topk"
+checkpoint_path: "checkpoints/topk_sae_mlp_hookpoints"
