@@ -12,6 +12,7 @@ Requires Hydra and config/config_autointerp.yaml.
 import asyncio
 import os
 from collections.abc import Callable
+from datetime import datetime
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -419,12 +420,15 @@ def non_redundant_hookpoints(
 
 
 async def run(
-# def run(
     run_cfg: RunConfig,
 ):
     base_path = Path.cwd() / "results"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
     if run_cfg.name:
-        base_path = base_path / run_cfg.name
+        base_path = base_path / f"{run_cfg.name}_{timestamp}"
+    else:
+        base_path = base_path / f"run_{timestamp}"
 
     base_path.mkdir(parents=True, exist_ok=True)
 
@@ -510,7 +514,6 @@ def main(cfg: DictConfig) -> None:
         **cfg_dict,  # type: ignore
     )
     asyncio.run(run(run_cfg))
-    # run(run_cfg)
 
 
 if __name__ == "__main__":
