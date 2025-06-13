@@ -170,6 +170,7 @@ artifacts/
 activations/
 outputs/
 multirun/
+results/
 
 *.html
 *.DS_Store

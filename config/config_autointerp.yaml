@@ -14,35 +14,41 @@ hydra:
 
 # ===================== CACHE CONFIG =====================
 cache_cfg:
-  dataset_repo: "EleutherAI/SmolLM2-135M-10B"  # Dataset repository for latent activations
-  dataset_split: "train[:1%]"                   # Dataset split
-  dataset_name: ""                              # Optional dataset name
-  dataset_column: "text"                        # Column to use
-  batch_size: 32                                # Batch size for caching
-  cache_ctx_len: 256                            # Context length for cache
-  n_tokens: 10000000                            # Number of tokens to cache
-  n_splits: 5                                   # Number of splits for .safetensors
+  # dataset_repo: "openai/gsm8k" # Dataset repository for latent activations
+  # dataset_split: "train" # Dataset split
+  # dataset_name: "main" # Optional dataset name
+  # dataset_column: "answer" # Column to use
+  dataset_repo: "togethercomputer/RedPajama-Data-1T-Sample"
+  dataset_split: "train[:10%]"
+  dataset_name: ""
+  dataset_column: "text"
+
+  batch_size: 32 # Batch size for caching
+  cache_ctx_len: 256 # Context length for cache
+  n_tokens: 10000000 # Number of tokens to cache
+  n_splits: 5 # Number of splits for .safetensors
+  streaming: false
 
 # ===================== CONSTRUCTOR CONFIG =====================
 constructor_cfg:
-  faiss_embedding_model: "sentence-transformers/all-MiniLM-L6-v2"  # FAISS embedding model
-  faiss_embedding_cache_dir: ".embedding_cache"                    # Embedding cache dir
-  faiss_embedding_cache_enabled: true                               # Cache embeddings?
-  example_ctx_len: 32                                               # Example context length
-  min_examples: 200                                                 # Min activating examples
-  n_non_activating: 50                                              # Non-activating examples
-  center_examples: true                                             # Center on activation?
-  non_activating_source: "random"                                  # Source for non-activating: random|neighbours|FAISS
-  neighbours_type: "co-occurrence"                                 # Neighbours type if used
+  faiss_embedding_model: "sentence-transformers/all-MiniLM-L6-v2" # FAISS embedding model
+  faiss_embedding_cache_dir: ".embedding_cache" # Embedding cache dir
+  faiss_embedding_cache_enabled: true # Cache embeddings?
+  example_ctx_len: 32 # Example context length
+  min_examples: 200 # Min activating examples
+  n_non_activating: 50 # Non-activating examples
+  center_examples: true # Center on activation?
+  non_activating_source: "random" # Source for non-activating: random|neighbours|FAISS
+  neighbours_type: "co-occurrence" # Neighbours type if used
 
 # ===================== SAMPLER CONFIG =====================
 sampler_cfg:
-  n_examples_train: 40         # Examples for explanation generation
-  n_examples_test: 50          # Examples for explanation testing
-  n_quantiles: 10              # Latent activation quantiles
-  train_type: "quantiles"      # Sampler type for training
-  test_type: "quantiles"       # Sampler type for testing
-  ratio_top: 0.2               # Ratio of top examples (if using mix)
+  n_examples_train: 40 # Examples for explanation generation
+  n_examples_test: 50 # Examples for explanation testing
+  n_quantiles: 10 # Latent activation quantiles
+  train_type: "quantiles" # Sampler type for training
+  test_type: "quantiles" # Sampler type for testing
+  ratio_top: 0.2 # Ratio of top examples (if using mix)
 
 # ===================== RUN CONFIG =====================
 # model: "meta-llama/Meta-Llama-3-8B"                # Model to explain
@@ -51,24 +57,25 @@ sampler_cfg:
 # sparse_model_source: "sparsify"
 
 model: "EleutherAI/pythia-70m"
-sparse_model: null
+sparse_model: ""
 hookpoints: [blocks.0.hook_mlp_out]
 sparse_model_source: "saelens"
+sparse_models: [""]
 
-explainer_model: "gpt-4.1-mini"  # Model for explanation/scoring
-explainer_model_max_len: 5120                       # Max explainer context length
-explainer_provider: "openai"                      # Provider: offline|openrouter
-explainer: "default"                               # Explainer: default|none
-scorers: ["fuzz", "detection"]                    # Scorer methods: fuzz|detection|simulation
-name: ""                                            # Name of the run (output dir)
-max_latents: null                                   # Max features to explain
-filter_bos: false                                   # Filter BOS tokens?
-log_probs: false                                    # Gather logprobs for scorer prompts?
-load_in_8bit: false                                 # Load model in 8-bit mode?
-hf_token: null                                      # Huggingface token (optional)
-pipeline_num_proc: 2                                # Number of processes for pipeline
-num_gpus: 1                                         # Number of GPUs to use
-seed: 22                                            # Random seed
-verbose: true                                       # Log summary stats/results?
-num_examples_per_scorer_prompt: 5                   # Examples per scorer prompt
-overwrite: []                                       # List of stages to recompute: cache|neighbours|scores 
+explainer_model: "gpt-4.1-mini" # Model for explanation/scoring
+explainer_model_max_len: 5120 # Max explainer context length
+explainer_provider: "openai" # Provider: offline|openrouter
+explainer: "default" # Explainer: default|none
+scorers: ["fuzz", "detection"] # Scorer methods: fuzz|detection|simulation
+name: "" # Name of the run (output dir)
+max_latents: null # Max features to explain
+filter_bos: false # Filter BOS tokens?
+log_probs: false # Gather logprobs for scorer prompts?
+load_in_8bit: false # Load model in 8-bit mode?
+hf_token: null # Huggingface token (optional)
+pipeline_num_proc: 2 # Number of processes for pipeline
+num_gpus: 1 # Number of GPUs to use
+seed: 22 # Random seed
+verbose: true # Log summary stats/results?
+num_examples_per_scorer_prompt: 5 # Examples per scorer prompt
+overwrite: [] # List of stages to recompute: cache|neighbours|scores

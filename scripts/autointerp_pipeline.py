@@ -21,6 +21,7 @@ import orjson
 import torch
 from omegaconf import DictConfig, OmegaConf
 from torch import Tensor
+from transformer_lens import HookedTransformer
 from transformers import (
     AutoModel,
     AutoTokenizer,
@@ -30,49 +31,68 @@ from transformers import (
     PreTrainedTokenizerFast,
 )
 
-from delphi.delphi.clients import Offline, OpenAI, OpenRouter
-from delphi.delphi.config import (
+from delphi.clients import Offline, OpenAI, OpenRouter
+from delphi.config import (
     CacheConfig,
     ConstructorConfig,
     RunConfig,
     SamplerConfig,
 )
-from delphi.delphi.explainers import (
+from delphi.explainers import (
     ContrastiveExplainer,
     DefaultExplainer,
     NoOpExplainer,
 )
-from delphi.delphi.explainers.explainer import ExplainerResult
-from delphi.delphi.latents import LatentCache, LatentDataset, LatentRecord
-from delphi.delphi.latents.neighbours import NeighbourCalculator
-from delphi.delphi.log.result_analysis import log_results
-from delphi.delphi.pipeline import Pipe, Pipeline, process_wrapper
-from delphi.delphi.scorers import DetectionScorer, FuzzingScorer, OpenAISimulator
-from delphi.delphi.sparse_coders import load_hooks_sparse_coders, load_sparse_coders
-from delphi.delphi.utils import assert_type, load_tokenized_data
+from delphi.explainers.explainer import ExplainerResult
+from delphi.latents import LatentCache, LatentDataset, LatentRecord
+from delphi.latents.neighbours import NeighbourCalculator
+from delphi.log.result_analysis import log_results
+from delphi.pipeline import Pipe, Pipeline, process_wrapper
+from delphi.scorers import DetectionScorer, FuzzingScorer, OpenAISimulator
+from delphi.sparse_coders import load_hooks_sparse_coders, load_sparse_coders
+from delphi.utils import assert_type, load_tokenized_data
+
+
+def get_device():
+    return "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def load_artifacts(
     run_cfg: RunConfig,
-) -> tuple[list[str], dict[str, Callable[..., Any]], PreTrainedModel, bool]:
+) -> tuple[
+    list[str], dict[str, Callable[..., Any]], PreTrainedModel | HookedTransformer, bool
+]:
     if run_cfg.load_in_8bit:
         dtype = torch.float16
     elif torch.cuda.is_bf16_supported():
         dtype = torch.bfloat16
-    else:
+    elif run_cfg.sparse_model_source == "sparsify":
         dtype = "auto"
+    else:
+        dtype = torch.float32
 
-    model = AutoModel.from_pretrained(
-        run_cfg.model,
-        device_map={"": "cuda"},
-        quantization_config=(
-            BitsAndBytesConfig(load_in_8bit=run_cfg.load_in_8bit)
-            if run_cfg.load_in_8bit
-            else None
-        ),
-        torch_dtype=dtype,
-        token=run_cfg.hf_token,
-    )
+    device = get_device()
+
+    if run_cfg.sparse_model_source == "sparsify":
+        model = AutoModel.from_pretrained(
+            run_cfg.model,
+            device_map={"": device},
+            quantization_config=(
+                BitsAndBytesConfig(load_in_8bit=run_cfg.load_in_8bit)
+                if run_cfg.load_in_8bit
+                else None
+            ),
+            torch_dtype=dtype,
+            token=run_cfg.hf_token,
+        )
+    elif run_cfg.sparse_model_source == "saelens":
+        model = HookedTransformer.from_pretrained(
+            run_cfg.model,
+            device=device,
+            dtype=str(dtype).split(".")[-1],
+        )
+    else:
+        raise ValueError(f"Unknown sparse model source: {run_cfg.sparse_model_source}")
 
     hookpoint_to_sparse_encode, transcode = load_hooks_sparse_coders(
         model,
@@ -117,7 +137,7 @@ def create_neighbours(
             or constructor_cfg.neighbours_type == "encoder_similarity"
         ):
             neighbour_calculator = NeighbourCalculator(
-                autoencoder=saes[hookpoint].to("cuda"), number_of_neighbours=250
+                autoencoder=saes[hookpoint].to(get_device()), number_of_neighbours=250
             )
         else:
             raise ValueError(
@@ -308,7 +328,7 @@ async def process_cache(
 
 def populate_cache(
     run_cfg: RunConfig,
-    model: PreTrainedModel,
+    model: PreTrainedModel | HookedTransformer,
     hookpoint_to_sparse_encode: dict[str, Callable[..., Any]],
     latents_path: Path,
     tokenizer: PreTrainedTokenizer | PreTrainedTokenizerFast,
@@ -332,6 +352,7 @@ def populate_cache(
         cache_cfg.dataset_name,
         cache_cfg.dataset_column,
         run_cfg.seed,
+        cache_cfg.streaming,
     )
 
     if run_cfg.filter_bos:
@@ -398,6 +419,7 @@ def non_redundant_hookpoints(
 
 
 async def run(
+# def run(
     run_cfg: RunConfig,
 ):
     base_path = Path.cwd() / "results"
@@ -478,18 +500,17 @@ async def run(
 def main(cfg: DictConfig) -> None:
     # Convert DictConfig to dict and resolve any references
     cfg_dict = OmegaConf.to_container(cfg, resolve=True)
-    if not isinstance(cfg_dict, dict):
-        raise ValueError("Config must be convertible to a dictionary")
 
     # Manually instantiate nested configs
-    cfg_dict["cache_cfg"] = CacheConfig(**cfg_dict["cache_cfg"])
-    cfg_dict["constructor_cfg"] = ConstructorConfig(**cfg_dict["constructor_cfg"])
-    cfg_dict["sampler_cfg"] = SamplerConfig(**cfg_dict["sampler_cfg"])
+    cfg_dict["cache_cfg"] = CacheConfig(**cfg_dict["cache_cfg"])  # type: ignore
+    cfg_dict["constructor_cfg"] = ConstructorConfig(**cfg_dict["constructor_cfg"])  # type: ignore
+    cfg_dict["sampler_cfg"] = SamplerConfig(**cfg_dict["sampler_cfg"])  # type: ignore
 
     run_cfg = RunConfig(
         **cfg_dict,  # type: ignore
     )
     asyncio.run(run(run_cfg))
+    # run(run_cfg)
 
 
 if __name__ == "__main__":
