@@ -4,3 +4,6 @@
 [submodule "delphi"]
 	path = delphi
 	url = git@github.com:Confirm-Solutions/delphi.git
+[submodule "SAEBench"]
+	path = SAEBench
+	url = git@github.com:Confirm-Solutions/SAEBench.git
