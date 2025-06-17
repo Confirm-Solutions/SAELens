@@ -1,0 +1,29 @@
+# @package _global_
+
+# Model configuration for TinyStories
+model_name: "pythia-14m"
+d_in: 128
+
+# Standard SAE architecture
+architecture: "topk"
+activation_fn: null
+activation_fn_kwargs:
+  k: 32
+  postact_fn: "relu"
+expansion_factor: 2048
+
+# Dataset
+dataset_path: "togethercomputer/RedPajama-Data-1T-Sample"
+is_dataset_tokenized: false
+column_name: text
+
+# Training settings
+training_tokens: 10_000_000
+train_batch_size_tokens: 2048
+store_batch_size_prompts: 16
+n_batches_in_buffer: 16
+
+# Wandb project
+wandb_project: "pythia-14m-redpajama" 
+wandb_group: "topk-sae-debug"
+log_to_wandb: false

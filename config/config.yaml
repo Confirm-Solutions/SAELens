@@ -231,3 +231,10 @@ sequence_separator_token: "bos" # int | "bos" | "eos" | "sep" | null
 # Saving options for pretokenization - set either save_path for local or hf_repo_id for HuggingFace
 save_path: null
 # Note: hf_repo_id, hf_num_shards, hf_revision, hf_is_private_repo are shared with cache activations above
+
+# Performance and profiling options
+# Set to true to enable FLOP profiling with torch.profiler (adds overhead every N steps)
+enable_flop_profiling: false
+# How often to profile FLOPs (every N steps)
+flop_profile_interval: 100
+use_fast_kernels: false

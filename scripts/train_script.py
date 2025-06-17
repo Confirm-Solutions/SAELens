@@ -163,6 +163,9 @@ def hydra_cfg_to_sae_cfg(cfg: DictConfig) -> LanguageModelSAERunnerConfig:
         model_kwargs=cfg.model_kwargs,
         model_from_pretrained_kwargs=cfg.model_from_pretrained_kwargs,
         exclude_special_tokens=cfg.exclude_special_tokens,
+        enable_flop_profiling=cfg.enable_flop_profiling,
+        flop_profile_interval=cfg.flop_profile_interval,
+        use_fast_kernels=cfg.use_fast_kernels,
     )
 
 

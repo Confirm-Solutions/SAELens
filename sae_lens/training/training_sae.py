@@ -24,6 +24,7 @@ from sae_lens.toolkit.pretrained_sae_loaders import (
 SPARSITY_PATH = "sparsity.safetensors"
 SAE_WEIGHTS_PATH = "sae_weights.safetensors"
 SAE_CFG_PATH = "cfg.json"
+_FAST_KERNEL_ACTS = {"topk"}
 
 
 def rectangle(x: torch.Tensor) -> torch.Tensor:
@@ -145,6 +146,7 @@ class TrainStepOutput:
     sae_out: torch.Tensor
     feature_acts: torch.Tensor
     hidden_pre: torch.Tensor
+    top_indices: torch.Tensor | None
     loss: torch.Tensor  # we need to call backwards on this
     losses: dict[str, float | torch.Tensor]
 
@@ -205,6 +207,7 @@ class TrainingSAEConfig(SAEConfig):
             model_from_pretrained_kwargs=cfg.model_from_pretrained_kwargs or {},
             jumprelu_init_threshold=cfg.jumprelu_init_threshold,
             jumprelu_bandwidth=cfg.jumprelu_bandwidth,
+            use_fast_kernels=cfg.use_fast_kernels,
         )
 
     @classmethod
@@ -245,6 +248,7 @@ class TrainingSAEConfig(SAEConfig):
             "normalize_activations": self.normalize_activations,
             "jumprelu_init_threshold": self.jumprelu_init_threshold,
             "jumprelu_bandwidth": self.jumprelu_bandwidth,
+            "use_fast_kernels": self.use_fast_kernels,
         }
 
     # this needs to exist so we can initialize the parent sae cfg without the training specific
@@ -270,6 +274,7 @@ class TrainingSAEConfig(SAEConfig):
             "dataset_path": self.dataset_path,
             "dataset_trust_remote_code": self.dataset_trust_remote_code,
             "sae_lens_training_version": self.sae_lens_training_version,
+            "use_fast_kernels": self.use_fast_kernels,
         }
 
 
@@ -438,8 +443,12 @@ class TrainingSAE(SAE):
         self,
         x: Float[torch.Tensor, "... d_in"],
     ) -> Float[torch.Tensor, "... d_in"]:
-        if self.cfg.architecture == "ridge":
-            reconstruction, feature_acts, _ = self.encode_with_hidden_pre_fn(  # type: ignore
+        if self.cfg.use_fast_kernels and self.cfg.architecture in _FAST_KERNEL_ACTS:
+            sae_in = self.process_sae_in(x)
+            payload = self.encode_fast(sae_in)
+            sae_out = self.decode_fast(payload)
+        elif self.cfg.architecture == "ridge":
+            reconstruction, feature_acts, hidden_pre = self.encode_with_hidden_pre_fn(  # type: ignore
                 x
             )
             sae_out = self.decode_ridge(reconstruction)
@@ -457,7 +466,16 @@ class TrainingSAE(SAE):
         # do a forward pass to get SAE out, but we also need the
         # hidden pre.
 
-        if self.cfg.architecture == "ridge":
+        top_indices = None
+        if self.cfg.use_fast_kernels and self.cfg.architecture in _FAST_KERNEL_ACTS:
+            payload = self.encode_fast(sae_in)
+            sae_out = self.decode_fast(payload)
+            feature_acts, hidden_pre, top_indices = (
+                payload.top_acts,
+                payload.pre_acts,
+                payload.top_indices,
+            )
+        elif self.cfg.architecture == "ridge":
             reconstruction, feature_acts, hidden_pre = self.encode_with_hidden_pre_fn(  # type: ignore
                 sae_in
             )
@@ -548,6 +566,7 @@ class TrainingSAE(SAE):
             sae_out=sae_out,
             feature_acts=feature_acts,
             hidden_pre=hidden_pre,
+            top_indices=top_indices,
             loss=loss,
             losses=losses,
         )

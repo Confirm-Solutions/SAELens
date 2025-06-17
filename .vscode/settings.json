@@ -19,5 +19,8 @@
 "liveServer.settings.port": 5501,
 "python.analysis.extraPaths": [
   "./delphi"
+],
+"cursorpyright.analysis.extraPaths": [
+  "./delphi"
 ]
 }

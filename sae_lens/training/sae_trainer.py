@@ -1,8 +1,10 @@
 import contextlib
+import time
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
 import torch
+import torch.profiler
 from torch.optim import Adam
 from tqdm import tqdm
 from transformer_lens.hook_points import HookedRootModule
@@ -155,6 +157,16 @@ class SAETrainer:
             compute_featurewise_weight_based_metrics=False,
         )
 
+        self.profiled_flops = None
+        self.last_profile_step = -1
+        self.flop_profile_interval = cfg.flop_profile_interval
+        # Timing and throughput
+        self.last_step_time = None
+        self.step_time_ema = None
+        self.ema_alpha = 0.05  # Smoothing for running average
+        self.last_throughput = None
+        self.throughput_ema = None
+
     @property
     def feature_sparsity(self) -> torch.Tensor:
         return self.act_freq_scores / self.n_frac_active_tokens
@@ -173,30 +185,51 @@ class SAETrainer:
 
     def fit(self) -> TrainingSAE:
         pbar = tqdm(total=self.cfg.total_training_tokens, desc="Training SAE")
-
         self.activations_store.set_norm_scaling_factor_if_needed()
-
-        # Train loop
         while self.n_training_tokens < self.cfg.total_training_tokens:
+            # Timing start
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t0 = time.time()
             # Do a training step.
             layer_acts = self.activations_store.next_batch()[:, 0, :].to(
                 self.sae.device
             )
             self.n_training_tokens += self.cfg.train_batch_size_tokens
-
             step_output = self._train_step(sae=self.sae, sae_in=layer_acts)
-
+            # Timing end
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            t1 = time.time()
+            step_time = t1 - t0
+            self.last_step_time = step_time
+            # Update running average (EMA)
+            if self.step_time_ema is None:
+                self.step_time_ema = step_time
+            else:
+                self.step_time_ema = (
+                    self.ema_alpha * step_time
+                    + (1 - self.ema_alpha) * self.step_time_ema
+                )
+            # Throughput (tokens/sec)
+            throughput = (
+                self.cfg.train_batch_size_tokens / step_time if step_time > 0 else 0.0
+            )
+            self.last_throughput = throughput
+            if self.throughput_ema is None:
+                self.throughput_ema = throughput
+            else:
+                self.throughput_ema = (
+                    self.ema_alpha * throughput
+                    + (1 - self.ema_alpha) * self.throughput_ema
+                )
             if self.cfg.log_to_wandb:
                 self._log_train_step(step_output)
                 self._run_and_log_evals()
-
             self._checkpoint_if_needed()
             self.n_training_steps += 1
             self._update_pbar(step_output, pbar)
-
-            ### If n_training_tokens > sae_group.cfg.training_tokens, then we should switch to fine-tuning (if we haven't already)
             self._begin_finetuning_if_needed()
-
         # fold the estimated norm scaling factor into the sae weights
         if self.activations_store.estimated_norm_scaling_factor is not None:
             self.sae.fold_activation_norm_scaling_factor(
@@ -220,53 +253,137 @@ class SAETrainer:
         sae: TrainingSAE,
         sae_in: torch.Tensor,
     ) -> TrainStepOutput:
+        should_profile = self.cfg.enable_flop_profiling and (
+            self.n_training_steps % self.flop_profile_interval == 0
+        )
+        if should_profile:
+            with torch.profiler.profile(
+                activities=[
+                    torch.profiler.ProfilerActivity.CPU,
+                    torch.profiler.ProfilerActivity.CUDA,
+                ],
+                profile_memory=False,
+                record_shapes=False,
+                with_flops=True,
+                with_stack=False,
+            ) as prof:
+                # Forward/backward as usual
+                sae.train()
+                if self.cfg.normalize_sae_decoder and self.cfg.architecture != "ridge":
+                    sae.set_decoder_norm_to_unit_norm()
+                with self.autocast_if_enabled:
+                    train_step_output = self.sae.training_forward_pass(
+                        sae_in=sae_in,
+                        dead_neuron_mask=self.dead_neurons,
+                        current_l1_coefficient=self.current_l1_coefficient,
+                    )
+                    with torch.no_grad():
+                        if self.sae.cfg.use_fast_kernels:
+                            # Handle sparse topk acts
+                            did_fire = torch.zeros_like(
+                                train_step_output.hidden_pre,
+                                dtype=torch.int,
+                                device=train_step_output.hidden_pre.device,
+                            )
+                            did_fire.scatter_(-1, train_step_output.top_indices, 1)  # type: ignore
+                            did_fire = did_fire.sum(-2) > 0
+                        else:
+                            did_fire = (train_step_output.feature_acts > 0).float().sum(
+                                -2
+                            ) > 0
+
+                        self.n_forward_passes_since_fired += 1
+                        self.n_forward_passes_since_fired[did_fire] = 0
+
+                        if self.sae.cfg.use_fast_kernels:
+                            assert train_step_output.top_indices is not None
+                            _freq_scores = torch.zeros_like(
+                                train_step_output.hidden_pre,
+                                dtype=torch.int,
+                                device=train_step_output.hidden_pre.device,
+                            )
+                            _freq_scores.scatter_(-1, train_step_output.top_indices, 1)
+                            self.act_freq_scores += _freq_scores.sum(0)
+                        else:
+                            self.act_freq_scores += (
+                                (train_step_output.feature_acts.abs() > 0)
+                                .float()
+                                .sum(0)
+                            )
+                        self.n_frac_active_tokens += self.cfg.train_batch_size_tokens
+                self.scaler.scale(train_step_output.loss).backward()
+                self.scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(sae.parameters(), 1.0)
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+                if self.cfg.normalize_sae_decoder and self.cfg.architecture != "ridge":
+                    sae.remove_gradient_parallel_to_decoder_directions()
+                self.optimizer.zero_grad()
+                self.lr_scheduler.step()
+                self.l1_scheduler.step()
+            # Extract FLOPs
+            flops = sum(
+                [
+                    evt.flops
+                    for evt in prof.key_averages()
+                    if hasattr(evt, "flops") and evt.flops is not None
+                ]
+            )
+            self.profiled_flops = flops
+            self.last_profile_step = self.n_training_steps
+            return train_step_output
         sae.train()
-        # Make sure the W_dec is still zero-norm
         if self.cfg.normalize_sae_decoder and self.cfg.architecture != "ridge":
             sae.set_decoder_norm_to_unit_norm()
-
-        # log and then reset the feature sparsity every feature_sampling_window steps
         if (self.n_training_steps + 1) % self.cfg.feature_sampling_window == 0:
             if self.cfg.log_to_wandb:
                 sparsity_log_dict = self._build_sparsity_log_dict()
                 wandb.log(sparsity_log_dict, step=self.n_training_steps)
             self._reset_running_sparsity_stats()
-
-        # for documentation on autocasting see:
-        # https://pytorch.org/tutorials/recipes/recipes/amp_recipe.html
         with self.autocast_if_enabled:
             train_step_output = self.sae.training_forward_pass(
                 sae_in=sae_in,
                 dead_neuron_mask=self.dead_neurons,
                 current_l1_coefficient=self.current_l1_coefficient,
             )
-
             with torch.no_grad():
-                did_fire = (train_step_output.feature_acts > 0).float().sum(-2) > 0
+                if self.sae.cfg.use_fast_kernels:
+                    # Handle sparse topk acts
+                    did_fire = torch.zeros_like(
+                        train_step_output.hidden_pre,
+                        dtype=torch.int,
+                        device=train_step_output.hidden_pre.device,
+                    )
+                    did_fire.scatter_(-1, train_step_output.top_indices, 1)  # type: ignore
+                    did_fire = did_fire.sum(-2) > 0
+                else:
+                    did_fire = (train_step_output.feature_acts > 0).float().sum(-2) > 0
                 self.n_forward_passes_since_fired += 1
                 self.n_forward_passes_since_fired[did_fire] = 0
-                self.act_freq_scores += (
-                    (train_step_output.feature_acts.abs() > 0).float().sum(0)
-                )
+                if self.sae.cfg.use_fast_kernels:
+                    assert train_step_output.top_indices is not None
+                    _freq_scores = torch.zeros_like(
+                        train_step_output.hidden_pre,
+                        dtype=torch.int,
+                        device=train_step_output.hidden_pre.device,
+                    )
+                    _freq_scores.scatter_(-1, train_step_output.top_indices, 1)
+                    self.act_freq_scores += _freq_scores.sum(0)
+                else:
+                    self.act_freq_scores += (
+                        (train_step_output.feature_acts.abs() > 0).float().sum(0)
+                    )
                 self.n_frac_active_tokens += self.cfg.train_batch_size_tokens
-
-        # Scaler will rescale gradients if autocast is enabled
-        self.scaler.scale(
-            train_step_output.loss
-        ).backward()  # loss.backward() if not autocasting
-        self.scaler.unscale_(self.optimizer)  # needed to clip correctly
-        # TODO: Work out if grad norm clipping should be in config / how to test it.
+        self.scaler.scale(train_step_output.loss).backward()
+        self.scaler.unscale_(self.optimizer)
         torch.nn.utils.clip_grad_norm_(sae.parameters(), 1.0)
-        self.scaler.step(self.optimizer)  # just ctx.optimizer.step() if not autocasting
+        self.scaler.step(self.optimizer)
         self.scaler.update()
-
         if self.cfg.normalize_sae_decoder and self.cfg.architecture != "ridge":
             sae.remove_gradient_parallel_to_decoder_directions()
-
         self.optimizer.zero_grad()
         self.lr_scheduler.step()
         self.l1_scheduler.step()
-
         return train_step_output
 
     @torch.no_grad()
@@ -326,6 +443,19 @@ class SAETrainer:
             else:
                 log_dict[f"losses/{loss_name}"] = loss_item
 
+        # Add FLOPs if available
+        if self.profiled_flops is not None:
+            log_dict["perf/flops_per_step"] = self.profiled_flops
+            log_dict["perf/flop_profile_step"] = self.last_profile_step
+        # Add timing and throughput metrics
+        if self.last_step_time is not None:
+            log_dict["perf/step_time_seconds"] = self.last_step_time
+        if self.step_time_ema is not None:
+            log_dict["perf/step_time_seconds_ema"] = self.step_time_ema
+        if self.last_throughput is not None:
+            log_dict["perf/throughput_tokens_per_sec"] = self.last_throughput
+        if self.throughput_ema is not None:
+            log_dict["perf/throughput_tokens_per_sec_ema"] = self.throughput_ema
         return log_dict
 
     @torch.no_grad()
