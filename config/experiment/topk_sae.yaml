@@ -17,6 +17,7 @@ use_fast_kernels: true
 dataset_path: "togethercomputer/RedPajama-Data-1T-Sample"
 is_dataset_tokenized: false
 column_name: text
+streaming: false
 
 # Training settings
 lr_warm_up_steps: 500

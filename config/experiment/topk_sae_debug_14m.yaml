@@ -10,7 +10,9 @@ activation_fn: null
 activation_fn_kwargs:
   k: 32
   postact_fn: "relu"
-expansion_factor: 2048
+expansion_factor: 64
+hook_name: "blocks.0.hook_mlp_out"
+hook_layer: 0
 
 # Dataset
 dataset_path: "togethercomputer/RedPajama-Data-1T-Sample"

@@ -8,22 +8,18 @@ hydra:
   sweeper:
     list_params:
       expansion_factor:
-        - 64
         - 96
         - 128
         - 256
       n_batches_in_buffer:
-        - 256
         - 128
         - 128
         - 128
       activation_fn_kwargs.k:
         - 32
-        - 32
         - 64
         - 128
       train_batch_size_tokens:
-        - 81920
         - 65536
         - 32768
         - 16384
