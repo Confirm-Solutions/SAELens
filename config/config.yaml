@@ -152,6 +152,10 @@ use_ghost_grads: false # want to change this to true on some timeline
 feature_sampling_window: 2000
 dead_feature_window: 1000 # unless this window is larger feature sampling
 dead_feature_threshold: 1e-8
+enable_auxk_loss: true
+enable_dead_neuron_bias_boosting: false
+use_random_bias_boost_noise: false
+dead_neuron_bias_boost_scale: 1e-3
 
 # ============================================================================
 # LOGGING CONFIGURATION

@@ -115,6 +115,10 @@ def hydra_cfg_to_sae_cfg(cfg: DictConfig) -> LanguageModelSAERunnerConfig:
         lr_end=cfg.lr_end,
         lr_decay_steps=cfg.lr_decay_steps,
         n_restart_cycles=cfg.n_restart_cycles,
+        enable_auxk_loss=cfg.enable_auxk_loss,
+        enable_dead_neuron_bias_boosting=cfg.enable_dead_neuron_bias_boosting,
+        use_random_bias_boost_noise=cfg.use_random_bias_boost_noise,
+        dead_neuron_bias_boost_scale=cfg.dead_neuron_bias_boost_scale,
         # Training Parameters - FineTuning
         finetuning_method=cfg.finetuning_method,
         # Resampling protocol args

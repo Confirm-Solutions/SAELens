@@ -96,6 +96,7 @@ class LanguageModelSAERunnerConfig:
         noise_scale (float): Using noise to induce sparsity is supported but not recommended.
         from_pretrained_path (str, optional): The path to a pretrained SAE. We can finetune an existing SAE if needed.
         apply_b_dec_to_input (bool): Whether to apply the decoder bias to the input. Not currently advised.
+        dead_neuron_bias_boost_scale (float): The scale of the boost to apply to the biases of the dead neurons.
         decoder_orthogonal_init (bool): Whether to use orthogonal initialization for the decoder. Not currently advised.
         decoder_heuristic_init (bool): Whether to use heuristic initialization for the decoder. See Anthropic April Update.
         init_encoder_as_decoder_transpose (bool): Whether to initialize the encoder as the transpose of the decoder. See Anthropic April Update.
@@ -159,6 +160,9 @@ class LanguageModelSAERunnerConfig:
         enable_flop_profiling (bool): Whether to enable FLOP profiling using torch.profiler. Default is False.
         flop_profile_interval (int): The interval (in steps) for FLOP profiling if enabled. Default is 100.
         use_fast_kernels (bool): Whether to use fast kernels for topk SAE forward pass.
+        enable_dead_neuron_bias_boosting (bool): Whether to actually enable dead neuron bias boosting.
+        enable_auxk_loss (bool): Whether to enable auxiliary top-k loss (auxk loss) for topk architecture.
+        use_random_bias_boost_noise (bool): Whether to use random noise for dead neuron bias boosting (otherwise use the boost scale as a fixed epsilon).
     """
 
     # Data Generating Function (Model + Training Distibuion)
@@ -225,6 +229,16 @@ class LanguageModelSAERunnerConfig:
     sae_compilation_mode: str | None = None
     use_fast_kernels: bool = (
         False  # Whether to use fast kernels for topk SAE forward pass
+    )
+    dead_neuron_bias_boost_scale: float = 1e-3
+    enable_dead_neuron_bias_boosting: bool = (
+        False  # Whether to actually enable dead neuron bias boosting
+    )
+    enable_auxk_loss: bool = (
+        True  # Whether to enable auxiliary top-k loss (auxk loss) for topk architecture
+    )
+    use_random_bias_boost_noise: bool = (
+        True  # Whether to use random noise for dead neuron bias boosting
     )
 
     # Training Parameters
@@ -529,6 +543,10 @@ class LanguageModelSAERunnerConfig:
             "jumprelu_bandwidth": self.jumprelu_bandwidth,
             "scale_sparsity_penalty_by_decoder_norm": self.scale_sparsity_penalty_by_decoder_norm,
             "use_fast_kernels": self.use_fast_kernels,
+            "dead_neuron_bias_boost_scale": self.dead_neuron_bias_boost_scale,
+            "enable_dead_neuron_bias_boosting": self.enable_dead_neuron_bias_boosting,
+            "enable_auxk_loss": self.enable_auxk_loss,
+            "use_random_bias_boost_noise": self.use_random_bias_boost_noise,
         }
 
     def to_dict(self) -> dict[str, Any]:

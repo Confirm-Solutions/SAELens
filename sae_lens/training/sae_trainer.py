@@ -316,6 +316,8 @@ class SAETrainer:
                 torch.nn.utils.clip_grad_norm_(sae.parameters(), 1.0)
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
+                if self.cfg.enable_dead_neuron_bias_boosting:
+                    self.sae.boost_dead_neuron_biases(self.dead_neurons)
                 if self.cfg.normalize_sae_decoder and self.cfg.architecture != "ridge":
                     sae.remove_gradient_parallel_to_decoder_directions()
                 self.optimizer.zero_grad()
@@ -379,6 +381,8 @@ class SAETrainer:
         torch.nn.utils.clip_grad_norm_(sae.parameters(), 1.0)
         self.scaler.step(self.optimizer)
         self.scaler.update()
+        if self.cfg.enable_dead_neuron_bias_boosting:
+            self.sae.boost_dead_neuron_biases(self.dead_neurons)
         if self.cfg.normalize_sae_decoder and self.cfg.architecture != "ridge":
             sae.remove_gradient_parallel_to_decoder_directions()
         self.optimizer.zero_grad()

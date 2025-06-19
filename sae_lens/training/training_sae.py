@@ -166,6 +166,10 @@ class TrainingSAEConfig(SAEConfig):
     decoder_heuristic_init: bool
     init_encoder_as_decoder_transpose: bool
     scale_sparsity_penalty_by_decoder_norm: bool
+    dead_neuron_bias_boost_scale: float
+    enable_dead_neuron_bias_boosting: bool = False
+    enable_auxk_loss: bool = True
+    use_random_bias_boost_noise: bool = True
 
     @classmethod
     def from_sae_runner_config(
@@ -208,6 +212,10 @@ class TrainingSAEConfig(SAEConfig):
             jumprelu_init_threshold=cfg.jumprelu_init_threshold,
             jumprelu_bandwidth=cfg.jumprelu_bandwidth,
             use_fast_kernels=cfg.use_fast_kernels,
+            dead_neuron_bias_boost_scale=cfg.dead_neuron_bias_boost_scale,
+            enable_dead_neuron_bias_boosting=cfg.enable_dead_neuron_bias_boosting,
+            enable_auxk_loss=cfg.enable_auxk_loss,
+            use_random_bias_boost_noise=cfg.use_random_bias_boost_noise,
         )
 
     @classmethod
@@ -249,6 +257,10 @@ class TrainingSAEConfig(SAEConfig):
             "jumprelu_init_threshold": self.jumprelu_init_threshold,
             "jumprelu_bandwidth": self.jumprelu_bandwidth,
             "use_fast_kernels": self.use_fast_kernels,
+            "dead_neuron_bias_boost_scale": self.dead_neuron_bias_boost_scale,
+            "enable_dead_neuron_bias_boosting": self.enable_dead_neuron_bias_boosting,
+            "enable_auxk_loss": self.enable_auxk_loss,
+            "use_random_bias_boost_noise": self.use_random_bias_boost_noise,
         }
 
     # this needs to exist so we can initialize the parent sae cfg without the training specific
@@ -275,6 +287,7 @@ class TrainingSAEConfig(SAEConfig):
             "dataset_trust_remote_code": self.dataset_trust_remote_code,
             "sae_lens_training_version": self.sae_lens_training_version,
             "use_fast_kernels": self.use_fast_kernels,
+            "dead_neuron_bias_boost_scale": self.dead_neuron_bias_boost_scale,
         }
 
 
@@ -521,14 +534,17 @@ class TrainingSAE(SAE):
             loss = mse_loss + l0_loss
             losses["l0_loss"] = l0_loss
         elif self.cfg.architecture == "topk":
-            topk_loss = self.calculate_topk_aux_loss(
-                sae_in=sae_in,
-                sae_out=sae_out,
-                hidden_pre=hidden_pre,
-                dead_neuron_mask=dead_neuron_mask,
-            )
-            losses["auxiliary_reconstruction_loss"] = topk_loss
-            loss = mse_loss + topk_loss
+            if self.cfg.enable_auxk_loss:
+                topk_loss = self.calculate_topk_aux_loss(
+                    sae_in=sae_in,
+                    sae_out=sae_out,
+                    hidden_pre=hidden_pre,
+                    dead_neuron_mask=dead_neuron_mask,
+                )
+                losses["auxiliary_reconstruction_loss"] = topk_loss
+                loss = mse_loss + topk_loss
+            else:
+                loss = mse_loss
         elif self.cfg.architecture == "ridge":
             # No special loss for ridge variant
             loss = mse_loss
@@ -570,6 +586,17 @@ class TrainingSAE(SAE):
             loss=loss,
             losses=losses,
         )
+
+    @torch.no_grad()
+    def boost_dead_neuron_biases(self, dead_neuron_mask: torch.Tensor):
+        # Boost the biases of the dead neurons by a small perturbation
+        if self.cfg.use_random_bias_boost_noise:
+            self.b_enc[dead_neuron_mask] += (
+                torch.randn_like(self.b_dec[dead_neuron_mask])
+                * self.cfg.dead_neuron_bias_boost_scale
+            )
+        else:
+            self.b_enc[dead_neuron_mask] += self.cfg.dead_neuron_bias_boost_scale
 
     def calculate_topk_aux_loss(
         self,
