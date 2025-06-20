@@ -6,6 +6,9 @@ defaults:
 
 hydra:
   sweeper:
+    grid_params:
+      dead_neuron_bias_boost_scale: 1e-2,0.1,0.15
+      activation_fn_kwargs.k: 32, 128, 512
     list_params:
       hook_name:
         - blocks.2.hook_mlp_out
@@ -14,5 +17,11 @@ hydra:
         - 2
         - 3
 
-wandb_group: "mlp_hookpoints_topk"
+enable_auxk_loss: false
+enable_dead_neuron_bias_boosting: true
+
+lr_warm_up_steps: 2000
+dead_feature_window: 1000
+
+wandb_group: "mlp_hookpoints_topk_bias_boost_sparsity"
 checkpoint_path: "checkpoints/topk_sae_mlp_hookpoints"

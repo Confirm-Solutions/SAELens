@@ -12,7 +12,7 @@ import numpy as np
 import torch
 from datasets import Dataset, DatasetDict, IterableDataset, load_dataset
 from huggingface_hub import hf_hub_download
-from huggingface_hub.utils import HfHubHTTPError
+from huggingface_hub.utils import HfHubHTTPError, HFValidationError
 from jaxtyping import Float, Int
 from requests import HTTPError
 from safetensors.torch import save_file
@@ -211,16 +211,18 @@ class ActivationsStore:
         if model_kwargs is None:
             model_kwargs = {}
         self.model_kwargs = model_kwargs
-        self.dataset = (
-            load_dataset(
-                dataset,
-                split="train",
-                streaming=streaming,
-                trust_remote_code=dataset_trust_remote_code,  # type: ignore
-            )
-            if isinstance(dataset, str)
-            else dataset
-        )
+        if isinstance(dataset, str):
+            if os.path.exists(dataset):
+                self.dataset = datasets.load_from_disk(dataset)
+            else:
+                self.dataset = load_dataset(
+                    dataset,
+                    split="train",  # type: ignore
+                    streaming=streaming,
+                    trust_remote_code=dataset_trust_remote_code,  # type: ignore
+                )
+        else:
+            self.dataset = dataset
 
         if isinstance(dataset, Dataset | DatasetDict):
             self.dataset = cast(Dataset | DatasetDict, self.dataset)
@@ -261,17 +263,17 @@ class ActivationsStore:
             self.dataset = self.dataset.rename_column(remap_tokens_column, "text")
 
         # Determine tokens column from dataset column names
-        available_columns = self.dataset.column_names # type: ignore
-        if "tokens" in available_columns: # type: ignore
+        available_columns = self.dataset.column_names  # type: ignore
+        if "tokens" in available_columns:  # type: ignore
             self.is_dataset_tokenized = True
             self.tokens_column = "tokens"
-        elif "input_ids" in available_columns: # type: ignore
+        elif "input_ids" in available_columns:  # type: ignore
             self.is_dataset_tokenized = True
             self.tokens_column = "input_ids"
-        elif "text" in available_columns: # type: ignore
+        elif "text" in available_columns:  # type: ignore
             self.is_dataset_tokenized = False
             self.tokens_column = "text"
-        elif "problem" in available_columns: # type: ignore
+        elif "problem" in available_columns:  # type: ignore
             self.is_dataset_tokenized = False
             self.tokens_column = "problem"
         else:
@@ -281,7 +283,7 @@ class ActivationsStore:
 
         # Filter dataset to only include the tokens column to avoid casting errors from metadata fields
         self.dataset = self.dataset.remove_columns(
-            [col for col in available_columns if col != self.tokens_column] # type: ignore
+            [col for col in available_columns if col != self.tokens_column]  # type: ignore
         )
 
         # Get a sample to check tokenization details
@@ -361,13 +363,15 @@ class ActivationsStore:
         # We assume that all necessary BOS/EOS/SEP tokens have been added during pretokenization.
         if self.is_dataset_tokenized:
             for row in self._iterate_raw_dataset():
-                yield torch.tensor(
-                    row[
-                        : self.context_size
-                    ],  # If self.context_size = None, this line simply returns the whole row
-                    dtype=torch.long,
-                    device=self.device,
-                    requires_grad=False,
+                yield (
+                    row[: self.context_size]
+                    if isinstance(row, torch.Tensor)
+                    else torch.tensor(
+                        row[: self.context_size],
+                        dtype=torch.long,
+                        device=self.device,
+                        requires_grad=False,
+                    )
                 )
         # If the dataset isn't tokenized, we'll tokenize, concat, and batch on the fly
         else:
@@ -832,6 +836,11 @@ def validate_pretokenized_dataset_tokenizer(
             dataset_path, "sae_lens.json", repo_type="dataset"
         )
     except HfHubHTTPError:
+        return
+    except HFValidationError:
+        # we're using a local dataset
+        tokenization_cfg_path = os.path.join(dataset_path, "sae_lens.json")
+    except FileNotFoundError:
         return
     if tokenization_cfg_path is None:
         return

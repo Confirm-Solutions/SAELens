@@ -24,7 +24,10 @@ lr_warm_up_steps: 500
 training_tokens: 1_000_000_000
 feature_sampling_window: 12500
 dead_feature_window: 6250
-train_batch_size_tokens: 32768
+
+flop_profile_interval: 1000
+
+train_batch_size_tokens: 65536
 store_batch_size_prompts: 64
 n_batches_in_buffer: 256
 lr: 1e-4

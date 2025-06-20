@@ -771,8 +771,11 @@ class TrainingSAE(SAE):
 
     ## Initialization Methods
     @torch.no_grad()
-    def initialize_b_dec_with_precalculated(self, origin: torch.Tensor):
-        out = torch.tensor(origin, dtype=self.dtype, device=self.device)
+    def initialize_b_dec_with_precalculated(self, origin: torch.Tensor | Any):
+        if not isinstance(origin, torch.Tensor):
+            out = torch.tensor(origin, dtype=self.dtype, device=self.device)
+        else:
+            out = origin.to(self.dtype).to(self.device)
         self.b_dec.data = out
 
     @torch.no_grad()

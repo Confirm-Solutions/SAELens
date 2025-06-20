@@ -47,7 +47,7 @@ expansion_factor: 4
 # ============================================================================
 dataset_path: ""
 dataset_trust_remote_code: true
-streaming: true
+streaming: false
 is_dataset_tokenized: true
 context_size: 128
 remap_tokens_column: null
@@ -218,7 +218,7 @@ hf_is_private_repo: false
 # PRETOKENIZE CONFIGURATION
 # ============================================================================
 # Pretokenize runner configuration
-tokenizer_name: "gpt2"
+tokenizer_name: "pythia-70m"
 dataset_name: null
 split: "train"
 data_files: null
@@ -230,6 +230,7 @@ pretokenize_batch_size: 1000
 # Special tokens for pretokenization
 begin_batch_token: "bos" # int | "bos" | "eos" | "sep" | null
 begin_sequence_token: null # int | "bos" | "eos" | "sep" | null
+
 sequence_separator_token: "bos" # int | "bos" | "eos" | "sep" | null
 
 # Saving options for pretokenization - set either save_path for local or hf_repo_id for HuggingFace
@@ -240,5 +241,5 @@ save_path: null
 # Set to true to enable FLOP profiling with torch.profiler (adds overhead every N steps)
 enable_flop_profiling: false
 # How often to profile FLOPs (every N steps)
-flop_profile_interval: 100
+flop_profile_interval: 500
 use_fast_kernels: true
