@@ -97,6 +97,7 @@ class SAETrainer:
             cast(int, cfg.d_sae),
             device=cfg.device,
         )
+
         self.n_frac_active_tokens = 0
         # we don't train the scaling factor (initially)
         # set requires grad to false for the scaling factor
@@ -381,8 +382,13 @@ class SAETrainer:
         torch.nn.utils.clip_grad_norm_(sae.parameters(), 1.0)
         self.scaler.step(self.optimizer)
         self.scaler.update()
-        if self.cfg.enable_dead_neuron_bias_boosting:
+
+        if (
+            self.cfg.enable_dead_neuron_bias_boosting
+            and (self.n_training_steps + 1) % self.cfg.feature_sampling_window == 0
+        ):
             self.sae.boost_dead_neuron_biases(self.dead_neurons)
+
         if self.cfg.normalize_sae_decoder and self.cfg.architecture != "ridge":
             sae.remove_gradient_parallel_to_decoder_directions()
         self.optimizer.zero_grad()
@@ -534,10 +540,7 @@ class SAETrainer:
 
     @torch.no_grad()
     def _reset_running_sparsity_stats(self) -> None:
-        self.act_freq_scores = torch.zeros(
-            self.cfg.d_sae,  # type: ignore
-            device=self.cfg.device,
-        )
+        self.act_freq_scores.zero_()
         self.n_frac_active_tokens = 0
 
     @torch.no_grad()

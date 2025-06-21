@@ -7,21 +7,32 @@ defaults:
 hydra:
   sweeper:
     grid_params:
-      dead_neuron_bias_boost_scale: 1e-2,0.1,0.15
-      activation_fn_kwargs.k: 32, 128, 512
+      activation_fn_kwargs.k: 32, 64
     list_params:
-      hook_name:
-        - blocks.2.hook_mlp_out
-        - blocks.3.hook_mlp_out
-      hook_layer:
-        - 2
-        - 3
+      dead_neuron_bias_boost_scale: 
+        - 1.0e-3 # a=1 * c=1 (orig)
+        - 1.25e-4 # a=1/4 * c=1/2
+        - 3.125e-5 # a=1/8 * c=1/4
+        - 7.8125e-6 # a=1/16 * c=1/8
+      feature_sampling_window:
+        - 1000 # c=1
+        - 500 # c=1/2
+        - 250 # c=1/4
+        - 125 # c=1/8
+      dead_feature_window: # should always be below our resampling window
+        - 500
+        - 250
+        - 125
+        - 75
+
+hook_name: blocks.3.hook_mlp_out 
+hook_layer: 3
+cached_activations_path: "sidnb13/rp1t-sample-tokenized-acts-pythia-70m-blocks.3.hook_mlp_out"
 
 enable_auxk_loss: false
 enable_dead_neuron_bias_boosting: true
 
 lr_warm_up_steps: 2000
-dead_feature_window: 1000
 
-wandb_group: "mlp_hookpoints_topk_bias_boost_sparsity"
-checkpoint_path: "checkpoints/topk_sae_mlp_hookpoints"
+wandb_group: "mlp_hookpoints_topk_bias_boost_sparsity_v2"
+checkpoint_path: "checkpoints/mlp_hookpoints_topk_bias_boost_sparsity_v2"

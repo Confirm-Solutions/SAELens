@@ -1,0 +1,44 @@
+# @package _global_
+
+defaults:
+  - _self_
+  - override /hydra/sweeper: list
+
+hydra:
+  sweeper:
+    list_params:
+      hook_name:
+        - blocks.2.hook_mlp_out
+        - blocks.3.hook_mlp_out
+      hook_layer:
+        - 2
+        - 3
+      new_cached_activations_path:
+        - "assets/data/activations/togethercomputer/RedPajama-Data-1T-Sample/EleutherAI/pythia-70m/blocks.2.hook_mlp_out"
+        - "assets/data/activations/togethercomputer/RedPajama-Data-1T-Sample/EleutherAI/pythia-70m/blocks.3.hook_mlp_out"
+      hf_repo_id:
+        - "sidnb13/rp1t-sample-tokenized-acts-pythia-70m-blocks.2.hook_mlp_out"
+        - "sidnb13/rp1t-sample-tokenized-acts-pythia-70m-blocks.3.hook_mlp_out"
+
+# ============================================================================
+# CACHE ACTIVATIONS CONFIGURATION
+# ============================================================================
+# Cache activations runner configuration
+
+model_name: "EleutherAI/pythia-70m"
+compile_llm: true
+
+# Dataset
+dataset_path: "sidnb13/rp1t-sample-tokenized-pythia-70m"
+is_dataset_tokenized: true
+column_name: text
+
+model_batch_size: 2048
+total_training_tokens: 1_000_000_000
+shuffle: true
+buffer_size_gb: 2.0 # HF datasets writer have problems with shards > 2GB
+
+# Huggingface Integration for cached activations
+hf_num_shards: null
+hf_revision: "main"
+hf_is_private_repo: false

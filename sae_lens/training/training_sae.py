@@ -609,6 +609,7 @@ class TrainingSAE(SAE):
         # NOTE: checking the number of dead neurons will force a GPU sync, so performance can likely be improved here
         if dead_neuron_mask is None or (num_dead := int(dead_neuron_mask.sum())) == 0:
             return sae_out.new_tensor(0.0)
+
         residual = (sae_in - sae_out).detach()
 
         # Heuristic from Appendix B.1 in the paper

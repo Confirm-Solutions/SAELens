@@ -8,7 +8,8 @@ cfg = PretokenizeRunnerConfig(
     tokenizer_name="EleutherAI/pythia-70m",
     dataset_path="togethercomputer/RedPajama-Data-1T-Sample",  # this is just a tiny test dataset
     shuffle=True,
-    num_proc=os.cpu_count(),  # increase this number depending on how many CPUs you have
+    num_proc=os.cpu_count()
+    or 4,  # increase this number depending on how many CPUs you have
     # tweak these settings depending on the model
     context_size=128,
     begin_batch_token="bos",

@@ -3,7 +3,12 @@ import torch
 from dotenv import load_dotenv
 from omegaconf import DictConfig
 
-from sae_lens.config import LanguageModelSAERunnerConfig
+from sae_lens.cache_activations_runner import CacheActivationsRunner
+from sae_lens.config import (
+    CacheActivationsRunnerConfig,
+    LanguageModelSAERunnerConfig,
+    PretokenizeRunnerConfig,
+)
 from sae_lens.sae_training_runner import SAETrainingRunner
 
 load_dotenv()
@@ -36,13 +41,12 @@ def resolve_device(device_config: str) -> str:
     return device_config
 
 
-def hydra_cfg_to_sae_cfg(cfg: DictConfig) -> LanguageModelSAERunnerConfig:
-    """Convert Hydra config to SAE config with explicit parameter mapping."""
+def hydra_cfg_to_lm_sae_cfg(cfg: DictConfig) -> LanguageModelSAERunnerConfig:
+    """Convert Hydra config to LanguageModelSAERunnerConfig."""
     # Resolve device configuration
     if "device" in cfg:
         cfg.device = resolve_device(cfg.device)
 
-    # Manually map every single parameter for maximum visibility
     return LanguageModelSAERunnerConfig(
         # Data Generating Function (Model + Training Distribution)
         model_name=cfg.model_name,
@@ -173,14 +177,96 @@ def hydra_cfg_to_sae_cfg(cfg: DictConfig) -> LanguageModelSAERunnerConfig:
     )
 
 
+def hydra_cfg_to_cache_activations_cfg(cfg: DictConfig) -> CacheActivationsRunnerConfig:
+    """Convert Hydra config to CacheActivationsRunnerConfig."""
+    # Resolve device configuration
+    if "device" in cfg:
+        cfg.device = resolve_device(cfg.device)
+
+    return CacheActivationsRunnerConfig(
+        # Core parameters required by CacheActivationsRunnerConfig
+        dataset_path=cfg.dataset_path,
+        model_name=cfg.model_name,
+        model_batch_size=cfg.model_batch_size,
+        hook_name=cfg.hook_name,
+        hook_layer=cfg.hook_layer,
+        d_in=cfg.d_in,
+        training_tokens=cfg.training_tokens,
+        # Optional parameters with defaults
+        context_size=cfg.context_size,
+        model_class_name=cfg.model_class_name,
+        new_cached_activations_path=cfg.new_cached_activations_path,
+        shuffle=cfg.shuffle,
+        seed=cfg.seed,
+        dtype=cfg.dtype,
+        device=cfg.device,
+        buffer_size_gb=cfg.buffer_size_gb,
+        # Huggingface Integration
+        hf_repo_id=cfg.hf_repo_id,
+        hf_num_shards=cfg.hf_num_shards,
+        hf_revision=cfg.hf_revision,
+        hf_is_private_repo=cfg.hf_is_private_repo,
+        # Model
+        model_kwargs=cfg.model_kwargs,
+        model_from_pretrained_kwargs=cfg.model_from_pretrained_kwargs,
+        compile_llm=cfg.compile_llm,
+        llm_compilation_mode=cfg.llm_compilation_mode,
+        # Activation Store
+        prepend_bos=cfg.prepend_bos,
+        seqpos_slice=tuple(cfg.seqpos_slice),
+        streaming=cfg.streaming,
+        autocast_lm=cfg.autocast_lm,
+        dataset_trust_remote_code=cfg.dataset_trust_remote_code,
+    )
+
+
+def hydra_cfg_to_pretokenize_cfg(cfg: DictConfig) -> PretokenizeRunnerConfig:
+    """Convert Hydra config to PretokenizeRunnerConfig."""
+    return PretokenizeRunnerConfig(
+        tokenizer_name=cfg.tokenizer_name,
+        dataset_path=cfg.dataset_path,
+        dataset_name=cfg.dataset_name,
+        dataset_trust_remote_code=cfg.dataset_trust_remote_code,
+        split=cfg.split,
+        data_files=cfg.data_files,
+        data_dir=cfg.data_dir,
+        num_proc=cfg.num_proc,
+        context_size=cfg.context_size,
+        column_name=cfg.column_name,
+        shuffle=cfg.shuffle,
+        seed=cfg.seed,
+        streaming=cfg.streaming,
+        pretokenize_batch_size=cfg.pretokenize_batch_size,
+        begin_batch_token=cfg.begin_batch_token,
+        begin_sequence_token=cfg.begin_sequence_token,
+        sequence_separator_token=cfg.sequence_separator_token,
+        save_path=cfg.save_path,
+        hf_repo_id=cfg.hf_repo_id,
+        hf_num_shards=cfg.hf_num_shards,
+        hf_revision=cfg.hf_revision,
+        hf_is_private_repo=cfg.hf_is_private_repo,
+    )
+
+
 @hydra.main(config_path="../config", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> None:
     """Main training function."""
     setup_custom_models()
 
-    # Convert to SAE config
-    sae_cfg = hydra_cfg_to_sae_cfg(cfg)
-    runner = SAETrainingRunner(sae_cfg, hydra_cfg=cfg)
+    # Convert to appropriate config based on mode
+    if cfg.mode == "train":
+        sae_cfg = hydra_cfg_to_lm_sae_cfg(cfg)
+        runner = SAETrainingRunner(sae_cfg, hydra_cfg=cfg)
+    elif cfg.mode == "cache_acts":
+        cache_cfg = hydra_cfg_to_cache_activations_cfg(cfg)
+        runner = CacheActivationsRunner(cache_cfg)
+    elif cfg.mode == "pretokenize":
+        pretokenize_cfg = hydra_cfg_to_pretokenize_cfg(cfg)
+        from sae_lens import PretokenizeRunner
+
+        runner = PretokenizeRunner(pretokenize_cfg)
+    else:
+        raise ValueError(f"Unknown mode: {cfg.mode}")
 
     runner.run()
 

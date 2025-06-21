@@ -1,8 +1,9 @@
+import dataclasses
 import io
 import json
 import shutil
-from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 import einops
 import torch
@@ -10,6 +11,7 @@ from datasets import Array2D, Dataset, Features, Sequence, Value
 from datasets.fingerprint import generate_fingerprint
 from huggingface_hub import HfApi
 from jaxtyping import Float, Int
+from omegaconf import DictConfig, ListConfig, OmegaConf
 from tqdm import tqdm
 from transformer_lens.HookedTransformer import HookedRootModule
 
@@ -299,7 +301,7 @@ class CacheActivationsRunner:
 
             meta_io = io.BytesIO()
             meta_contents = json.dumps(
-                asdict(self.cfg), indent=2, ensure_ascii=False
+                sanitize_for_json(self.cfg), indent=2, ensure_ascii=False
             ).encode("utf-8")
             meta_io.write(meta_contents)
             meta_io.seek(0)
@@ -354,3 +356,23 @@ class CacheActivationsRunner:
         if seqpos_slice is not None:
             context_size = len(range(context_size)[slice(*seqpos_slice)])
         return context_size
+
+
+def sanitize_for_json(obj: Any) -> Any:
+    # Handle OmegaConf objects
+    if isinstance(obj, DictConfig | ListConfig):
+        obj = OmegaConf.to_container(obj, resolve=True)
+    # Handle dataclasses (only instances, not types)
+    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+        obj = dataclasses.asdict(obj)
+    # Handle dicts
+    if isinstance(obj, dict):
+        return {k: sanitize_for_json(v) for k, v in obj.items()}
+    # Handle lists/tuples
+    if isinstance(obj, list | tuple):
+        return [sanitize_for_json(v) for v in obj]
+    # Handle Path, torch.dtype, etc.
+    if isinstance(obj, Path | torch.dtype):
+        return str(obj)
+    # Add more custom handlers as needed
+    return obj
