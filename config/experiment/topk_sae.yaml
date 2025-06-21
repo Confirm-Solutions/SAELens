@@ -12,6 +12,7 @@ activation_fn_kwargs:
   postact_fn: "relu"
 expansion_factor: 64
 use_fast_kernels: true
+normalize_activations: "constant_norm_rescale"
 
 # Dataset
 dataset_path: "sidnb13/rp1t-sample-tokenized-pythia-70m"
