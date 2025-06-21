@@ -18,7 +18,6 @@ from sae_lens.training.optim import L1Scheduler, get_lr_scheduler
 from sae_lens.training.training_sae import (
     TrainingSAE,
     TrainStepOutput,
-    _supports_fast_kernels,
 )
 
 # used to map between parameters which are updated during finetuning and the config str.
@@ -283,44 +282,16 @@ class SAETrainer:
                         current_l1_coefficient=self.current_l1_coefficient,
                     )
                     with torch.no_grad():
-                        if (
-                            _supports_fast_kernels(self.sae.device)
-                            and self.sae.cfg.use_fast_kernels
-                        ):
-                            # Handle sparse topk acts
-                            did_fire = torch.zeros_like(
-                                train_step_output.hidden_pre,
-                                dtype=torch.int,
-                                device=train_step_output.hidden_pre.device,
-                            )
-                            did_fire.scatter_(-1, train_step_output.top_indices, 1)  # type: ignore
-                            did_fire = did_fire.sum(-2) > 0
-                        else:
-                            did_fire = (train_step_output.feature_acts > 0).float().sum(
-                                -2
-                            ) > 0
+                        did_fire = (train_step_output.feature_acts > 0).float().sum(
+                            -2
+                        ) > 0
 
                         self.n_forward_passes_since_fired += 1
                         self.n_forward_passes_since_fired[did_fire] = 0
 
-                        if (
-                            _supports_fast_kernels(self.sae.device)
-                            and self.sae.cfg.use_fast_kernels
-                        ):
-                            assert train_step_output.top_indices is not None
-                            _freq_scores = torch.zeros_like(
-                                train_step_output.hidden_pre,
-                                dtype=torch.int,
-                                device=train_step_output.hidden_pre.device,
-                            )
-                            _freq_scores.scatter_(-1, train_step_output.top_indices, 1)
-                            self.act_freq_scores += _freq_scores.sum(0)
-                        else:
-                            self.act_freq_scores += (
-                                (train_step_output.feature_acts.abs() > 0)
-                                .float()
-                                .sum(0)
-                            )
+                        self.act_freq_scores += (
+                            (train_step_output.feature_acts.abs() > 0).float().sum(0)
+                        )
                         self.n_frac_active_tokens += self.cfg.train_batch_size_tokens
                 self.scaler.scale(train_step_output.loss).backward()
                 self.scaler.unscale_(self.optimizer)
@@ -360,38 +331,12 @@ class SAETrainer:
                 current_l1_coefficient=self.current_l1_coefficient,
             )
             with torch.no_grad():
-                if (
-                    _supports_fast_kernels(self.sae.device)
-                    and self.sae.cfg.use_fast_kernels
-                ):
-                    # Handle sparse topk acts
-                    did_fire = torch.zeros_like(
-                        train_step_output.hidden_pre,
-                        dtype=torch.int,
-                        device=train_step_output.hidden_pre.device,
-                    )
-                    did_fire.scatter_(-1, train_step_output.top_indices, 1)  # type: ignore
-                    did_fire = did_fire.sum(-2) > 0
-                else:
-                    did_fire = (train_step_output.feature_acts > 0).float().sum(-2) > 0
+                did_fire = (train_step_output.feature_acts > 0).float().sum(-2) > 0
                 self.n_forward_passes_since_fired += 1
                 self.n_forward_passes_since_fired[did_fire] = 0
-                if (
-                    _supports_fast_kernels(self.sae.device)
-                    and self.sae.cfg.use_fast_kernels
-                ):
-                    assert train_step_output.top_indices is not None
-                    _freq_scores = torch.zeros_like(
-                        train_step_output.hidden_pre,
-                        dtype=torch.int,
-                        device=train_step_output.hidden_pre.device,
-                    )
-                    _freq_scores.scatter_(-1, train_step_output.top_indices, 1)
-                    self.act_freq_scores += _freq_scores.sum(0)
-                else:
-                    self.act_freq_scores += (
-                        (train_step_output.feature_acts.abs() > 0).float().sum(0)
-                    )
+                self.act_freq_scores += (
+                    (train_step_output.feature_acts.abs() > 0).float().sum(0)
+                )
                 self.n_frac_active_tokens += self.cfg.train_batch_size_tokens
         self.scaler.scale(train_step_output.loss).backward()
         self.scaler.unscale_(self.optimizer)
@@ -401,7 +346,7 @@ class SAETrainer:
 
         if (
             self.cfg.enable_dead_neuron_bias_boosting
-            and (self.n_training_steps + 1) % self.cfg.feature_sampling_window == 0
+            and (self.n_training_steps + 1) % self.cfg.dead_feature_window == 0
         ):
             self.sae.boost_dead_neuron_biases(self.dead_neurons)
 

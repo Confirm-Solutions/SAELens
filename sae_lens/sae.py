@@ -14,7 +14,6 @@ import einops
 import torch
 from jaxtyping import Float
 from safetensors.torch import save_file
-from sparsify.sparse_coder import EncoderOutput
 from torch import nn
 from transformer_lens.hook_points import HookedRootModule, HookPoint
 from typing_extensions import deprecated
@@ -49,8 +48,6 @@ _POSTACT_FN_MAP = {
     "sigmoid": nn.Sigmoid,
 }
 
-_FAST_KERNEL_ACTS = {"topk"}
-
 
 @dataclass
 class SAEConfig:
@@ -84,7 +81,6 @@ class SAEConfig:
     model_from_pretrained_kwargs: dict[str, Any] = field(default_factory=dict)
     seqpos_slice: tuple[int | None, ...] = (None,)
     orthogonal_init: bool = False
-    use_fast_kernels: bool = False
 
     @classmethod
     def from_dict(cls, config_dict: dict[str, Any]) -> "SAEConfig":
@@ -135,7 +131,6 @@ class SAEConfig:
             "neuronpedia_id": self.neuronpedia_id,
             "model_from_pretrained_kwargs": self.model_from_pretrained_kwargs,
             "seqpos_slice": self.seqpos_slice,
-            "use_fast_kernels": self.use_fast_kernels,
         }
 
 
@@ -408,11 +403,7 @@ class SAE(HookedRootModule):
         self,
         x: torch.Tensor,
     ) -> torch.Tensor:
-        if self.cfg.use_fast_kernels and self.cfg.architecture in _FAST_KERNEL_ACTS:
-            sae_in = self.process_sae_in(x)
-            payload = self.encode_fast(sae_in)
-            sae_out = self.decode_fast(payload)
-        elif self.cfg.architecture == "ridge":
+        if self.cfg.architecture == "ridge":
             sae_out, feature_acts = self.encode_ridge(x)
         else:
             feature_acts = self.encode(x)
@@ -479,17 +470,6 @@ class SAE(HookedRootModule):
         topk_indices = topk.indices
         topk_values = topk.values
 
-        # if self.cfg.activation_fn_kwargs.get("use_fixed_penalty", False):
-        #     lam = self.cfg.activation_fn_kwargs.get("lam", 1e-3)
-        #     penalties = torch.eye(k, device=scores.device) * lam
-
-        #     if scores.dim() == 3:
-        #         penalties = penalties[None, None, :, :].expand(
-        #             scores.shape[0], scores.shape[1], -1, -1
-        #         )
-        #     else:
-        #         penalties = penalties[None, :, :].expand(scores.shape[0], -1, -1)
-
         penalties = torch.diag_embed(topk_values.pow(-alpha))  # (batch, (seq), k, k)
         return penalties, topk_indices  # (batch (seq), k, k)
 
@@ -525,32 +505,6 @@ class SAE(HookedRootModule):
         Yhat = (X @ masked_beta).squeeze()
 
         return Yhat, full_beta
-
-    def encode_fast(self, sae_in: Float[torch.Tensor, "... d_in"]) -> EncoderOutput:
-        if self.cfg.architecture == "topk":
-            from sparsify.sparse_coder import fused_encoder
-
-            return fused_encoder(
-                sae_in,
-                self.W_enc.T,
-                self.b_enc,
-                self.cfg.activation_fn_kwargs.get("k", 8),
-                "topk",
-            )
-
-        raise ValueError(
-            f"Architecture {self.cfg.architecture} not supported for fast kernels"
-        )
-
-    def decode_fast(self, payload: EncoderOutput) -> Float[torch.Tensor, "... d_in"]:
-        from sparsify.sparse_coder import decoder_impl
-
-        y = decoder_impl(
-            payload.top_indices,
-            payload.top_acts.to(self.dtype),
-            self.W_dec.mT,
-        )  # type: ignore
-        return y + self.b_dec
 
     def encode_standard(
         self, x: Float[torch.Tensor, "... d_in"]
@@ -847,10 +801,6 @@ class TopK(nn.Module):
         result = torch.zeros_like(x)
         result.scatter_(-1, topk.indices, values)
         return result
-
-
-class FastTopK(nn.Module):
-    pass
 
 
 def get_activation_fn(

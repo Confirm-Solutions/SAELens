@@ -25,8 +25,31 @@ defaults:
 #         - 125
 #         - 75
 
-enable_auxk_loss: false
-enable_dead_neuron_bias_boosting: true
+# hydra:
+#   sweeper:
+#     list_params:
+#       dead_neuron_bias_boost_scale: 
+#         - 1.0e-3 # a=1 * c=1 (orig)
+#         - 1.25e-4 # a=1/4 * c=1/2
+#       feature_sampling_window:
+#         - 100
+#         - 200
+#       dead_feature_window: # should always be below our resampling window
+#         - 50
+#         - 100
 
-wandb_group: "mlp_hookpoints_topk_bias_boost_sparsity_v2"
-checkpoint_path: "checkpoints/mlp_hookpoints_topk_bias_boost_sparsity_v2"
+hydra:
+  sweeper:
+    list_params:
+      hook_layer:
+        - 2
+        - 3
+      hook_name:
+        - "blocks.2.hook_mlp_out"
+        - "blocks.3.hook_mlp_out"
+
+enable_auxk_loss: true
+enable_dead_neuron_bias_boosting: false
+
+wandb_group: "topk_sae_training_6_21_25"
+checkpoint_path: "checkpoints/topk_sae_training_6_21_25"

@@ -5,7 +5,7 @@ import json
 import os
 import warnings
 from collections.abc import Generator, Iterator, Sequence
-from typing import Any, Literal, cast
+from typing import Any, cast
 
 import datasets
 import numpy as np
@@ -43,7 +43,7 @@ class ActivationsStore:
     dataset: HfDataset
     cached_activations_path: str | None
     cached_activation_dataset: Dataset | None = None
-    tokens_column: Literal["tokens", "input_ids", "text", "problem"]
+    tokens_column: str
     hook_name: str
     hook_layer: int
     hook_head_index: int | None
@@ -256,38 +256,29 @@ class ActivationsStore:
 
         self.estimated_norm_scaling_factor = None
 
-        # If remap_tokens_column is provided, we need to rename the column to "text"
-        if remap_tokens_column is not None:
-            self.is_dataset_tokenized = False
-            self.tokens_column = "text"
-            self.dataset = self.dataset.rename_column(remap_tokens_column, "text")
+        # Check if dataset is tokenized
+        dataset_sample = next(iter(self.dataset))
 
-        # Determine tokens column from dataset column names
-        available_columns = self.dataset.column_names  # type: ignore
-        if "tokens" in available_columns:  # type: ignore
+        # check if it's tokenized
+        if remap_tokens_column is not None and remap_tokens_column in dataset_sample:
+            self.is_dataset_tokenized = False
+            self.tokens_column = remap_tokens_column
+        elif "tokens" in dataset_sample:
             self.is_dataset_tokenized = True
             self.tokens_column = "tokens"
-        elif "input_ids" in available_columns:  # type: ignore
+        elif "input_ids" in dataset_sample:
             self.is_dataset_tokenized = True
             self.tokens_column = "input_ids"
-        elif "text" in available_columns:  # type: ignore
+        elif "text" in dataset_sample:
             self.is_dataset_tokenized = False
             self.tokens_column = "text"
-        elif "problem" in available_columns:  # type: ignore
+        elif "problem" in dataset_sample:
             self.is_dataset_tokenized = False
             self.tokens_column = "problem"
         else:
             raise ValueError(
-                f"Dataset must have a 'tokens', 'input_ids', 'text', or 'problem' column. Available columns: {available_columns}"
+                "Dataset must have a 'tokens', 'input_ids', 'text', or 'problem' column."
             )
-
-        # Filter dataset to only include the tokens column to avoid casting errors from metadata fields
-        self.dataset = self.dataset.remove_columns(
-            [col for col in available_columns if col != self.tokens_column]  # type: ignore
-        )
-
-        # Get a sample to check tokenization details
-        dataset_sample = next(iter(self.dataset))
 
         if self.is_dataset_tokenized:
             ds_context_size = len(dataset_sample[self.tokens_column])

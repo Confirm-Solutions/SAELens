@@ -173,7 +173,6 @@ def hydra_cfg_to_lm_sae_cfg(cfg: DictConfig) -> LanguageModelSAERunnerConfig:
         exclude_special_tokens=cfg.exclude_special_tokens,
         enable_flop_profiling=cfg.enable_flop_profiling,
         flop_profile_interval=cfg.flop_profile_interval,
-        use_fast_kernels=cfg.use_fast_kernels,
     )
 
 

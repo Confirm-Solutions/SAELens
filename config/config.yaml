@@ -244,4 +244,3 @@ save_path: null
 enable_flop_profiling: false
 # How often to profile FLOPs (every N steps)
 flop_profile_interval: 500
-use_fast_kernels: true

@@ -24,35 +24,6 @@ from sae_lens.toolkit.pretrained_sae_loaders import (
 SPARSITY_PATH = "sparsity.safetensors"
 SAE_WEIGHTS_PATH = "sae_weights.safetensors"
 SAE_CFG_PATH = "cfg.json"
-_FAST_KERNEL_ACTS = {"topk"}
-
-
-_supports_fast_kernels_flag = None
-
-
-def _supports_fast_kernels(device: torch.device) -> bool:
-    """
-    Check if fast kernels can be used. This requires embedding_bag to work on the current device.
-    """
-    global _supports_fast_kernels_flag
-
-    if _supports_fast_kernels_flag is not None:
-        return _supports_fast_kernels_flag
-
-    # Check if embedding_bag works on the current device
-    try:
-        # Test if embedding_bag function works
-        test_tensor = torch.randn(10, 5, device=device)
-        test_indices = torch.randint(0, 5, (10,), device=device)
-        test_offsets = torch.tensor([0, 10], device=device)  # Required for mode="sum"
-        torch.nn.functional.embedding_bag(
-            test_indices, test_tensor, test_offsets, mode="sum"
-        )
-        _supports_fast_kernels_flag = True
-    except (AttributeError, RuntimeError, NotImplementedError):
-        _supports_fast_kernels_flag = False
-
-    return _supports_fast_kernels_flag
 
 
 def rectangle(x: torch.Tensor) -> torch.Tensor:
@@ -239,7 +210,6 @@ class TrainingSAEConfig(SAEConfig):
             model_from_pretrained_kwargs=cfg.model_from_pretrained_kwargs or {},
             jumprelu_init_threshold=cfg.jumprelu_init_threshold,
             jumprelu_bandwidth=cfg.jumprelu_bandwidth,
-            use_fast_kernels=cfg.use_fast_kernels,
             dead_neuron_bias_boost_scale=cfg.dead_neuron_bias_boost_scale,
             enable_dead_neuron_bias_boosting=cfg.enable_dead_neuron_bias_boosting,
             enable_auxk_loss=cfg.enable_auxk_loss,
@@ -284,7 +254,6 @@ class TrainingSAEConfig(SAEConfig):
             "normalize_activations": self.normalize_activations,
             "jumprelu_init_threshold": self.jumprelu_init_threshold,
             "jumprelu_bandwidth": self.jumprelu_bandwidth,
-            "use_fast_kernels": self.use_fast_kernels,
             "dead_neuron_bias_boost_scale": self.dead_neuron_bias_boost_scale,
             "enable_dead_neuron_bias_boosting": self.enable_dead_neuron_bias_boosting,
             "enable_auxk_loss": self.enable_auxk_loss,
@@ -314,7 +283,6 @@ class TrainingSAEConfig(SAEConfig):
             "dataset_path": self.dataset_path,
             "dataset_trust_remote_code": self.dataset_trust_remote_code,
             "sae_lens_training_version": self.sae_lens_training_version,
-            "use_fast_kernels": self.use_fast_kernels,
             "dead_neuron_bias_boost_scale": self.dead_neuron_bias_boost_scale,
         }
 
@@ -484,15 +452,7 @@ class TrainingSAE(SAE):
         self,
         x: Float[torch.Tensor, "... d_in"],
     ) -> Float[torch.Tensor, "... d_in"]:
-        if (
-            _supports_fast_kernels(self.device)
-            and self.cfg.use_fast_kernels
-            and self.cfg.architecture in _FAST_KERNEL_ACTS
-        ):
-            sae_in = self.process_sae_in(x)
-            payload = self.encode_fast(sae_in)
-            sae_out = self.decode_fast(payload)
-        elif self.cfg.architecture == "ridge":
+        if self.cfg.architecture == "ridge":
             reconstruction, feature_acts, hidden_pre = self.encode_with_hidden_pre_fn(  # type: ignore
                 x
             )
@@ -512,23 +472,11 @@ class TrainingSAE(SAE):
         # hidden pre.
 
         top_indices = None
-        if (
-            _supports_fast_kernels(self.device)
-            and self.cfg.use_fast_kernels
-            and self.cfg.architecture in _FAST_KERNEL_ACTS
-        ):
-            payload = self.encode_fast(sae_in)
-            sae_out = self.decode_fast(payload)
-            feature_acts, hidden_pre, top_indices = (
-                payload.top_acts,
-                payload.pre_acts,
-                payload.top_indices,
-            )
-        elif self.cfg.architecture == "ridge":
+        if self.cfg.architecture == "ridge":
             reconstruction, feature_acts, hidden_pre = self.encode_with_hidden_pre_fn(  # type: ignore
                 sae_in
             )
-            sae_out = self.decode_ridge(reconstruction)
+            sae_out = self.decode_ridge(reconstruction)  # type: ignore
         else:
             feature_acts, hidden_pre = self.encode_with_hidden_pre_fn(sae_in)
             sae_out = self.decode(feature_acts)
@@ -641,6 +589,10 @@ class TrainingSAE(SAE):
         hidden_pre: torch.Tensor,
         dead_neuron_mask: torch.Tensor | None,
     ) -> torch.Tensor:
+        assert self.cfg.normalize_activations != "constant_norm_rescale", (
+            "constant_norm_rescale is not supported for topk aux loss"
+        )
+
         # Mostly taken from https://github.com/EleutherAI/sae/blob/main/sae/sae.py, except without variance normalization
         # NOTE: checking the number of dead neurons will force a GPU sync, so performance can likely be improved here
         if dead_neuron_mask is None or (num_dead := int(dead_neuron_mask.sum())) == 0:
@@ -655,7 +607,7 @@ class TrainingSAE(SAE):
         scale = min(num_dead / k_aux, 1.0)
         k_aux = min(k_aux, num_dead)
 
-        auxk_acts = _calculate_topk_aux_acts(
+        auxk_acts = _calculate_topk_aux_acts(  # type: ignore
             k_aux=k_aux,
             hidden_pre=hidden_pre,
             dead_neuron_mask=dead_neuron_mask,
@@ -664,6 +616,7 @@ class TrainingSAE(SAE):
         # Encourage the top ~50% of dead latents to predict the residual of the
         # top k living latents
         recons = self.decode(auxk_acts)
+
         auxk_loss = (recons - residual).pow(2).sum(dim=-1).mean()
         return scale * auxk_loss
 
@@ -880,5 +833,4 @@ def _calculate_topk_aux_acts(
     # Set the activations to zero for all but the top k_aux dead latents
     auxk_acts = torch.zeros_like(hidden_pre)
     auxk_acts.scatter_(-1, auxk_topk.indices, auxk_topk.values)
-    # Set activations to zero for all but top k_aux dead latents
     return auxk_acts

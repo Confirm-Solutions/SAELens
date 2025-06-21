@@ -159,7 +159,6 @@ class LanguageModelSAERunnerConfig:
         exclude_special_tokens (bool | list[int]): Whether to exclude special tokens from the activations.
         enable_flop_profiling (bool): Whether to enable FLOP profiling using torch.profiler. Default is False.
         flop_profile_interval (int): The interval (in steps) for FLOP profiling if enabled. Default is 100.
-        use_fast_kernels (bool): Whether to use fast kernels for topk SAE forward pass.
         enable_dead_neuron_bias_boosting (bool): Whether to actually enable dead neuron bias boosting.
         enable_auxk_loss (bool): Whether to enable auxiliary top-k loss (auxk loss) for topk architecture.
         use_random_bias_boost_noise (bool): Whether to use random noise for dead neuron bias boosting (otherwise use the boost scale as a fixed epsilon).
@@ -227,9 +226,6 @@ class LanguageModelSAERunnerConfig:
     llm_compilation_mode: str | None = None  # which torch.compile mode to use
     compile_sae: bool = False  # use torch.compile on the SAE
     sae_compilation_mode: str | None = None
-    use_fast_kernels: bool = (
-        False  # Whether to use fast kernels for topk SAE forward pass
-    )
     dead_neuron_bias_boost_scale: float = 1e-3
     enable_dead_neuron_bias_boosting: bool = (
         False  # Whether to actually enable dead neuron bias boosting
@@ -542,7 +538,6 @@ class LanguageModelSAERunnerConfig:
             "jumprelu_init_threshold": self.jumprelu_init_threshold,
             "jumprelu_bandwidth": self.jumprelu_bandwidth,
             "scale_sparsity_penalty_by_decoder_norm": self.scale_sparsity_penalty_by_decoder_norm,
-            "use_fast_kernels": self.use_fast_kernels,
             "dead_neuron_bias_boost_scale": self.dead_neuron_bias_boost_scale,
             "enable_dead_neuron_bias_boosting": self.enable_dead_neuron_bias_boosting,
             "enable_auxk_loss": self.enable_auxk_loss,
