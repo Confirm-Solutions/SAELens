@@ -15,7 +15,11 @@ from sae_lens.config import LanguageModelSAERunnerConfig
 from sae_lens.evals import EvalConfig, run_evals
 from sae_lens.training.activations_store import ActivationsStore
 from sae_lens.training.optim import L1Scheduler, get_lr_scheduler
-from sae_lens.training.training_sae import TrainingSAE, TrainStepOutput
+from sae_lens.training.training_sae import (
+    TrainingSAE,
+    TrainStepOutput,
+    _supports_fast_kernels,
+)
 
 # used to map between parameters which are updated during finetuning and the config str.
 FINETUNING_PARAMETERS = {
@@ -255,7 +259,7 @@ class SAETrainer:
         sae_in: torch.Tensor,
     ) -> TrainStepOutput:
         should_profile = self.cfg.enable_flop_profiling and (
-            self.n_training_steps % self.flop_profile_interval == 0
+            (self.n_training_steps + 1) % self.flop_profile_interval == 0
         )
         if should_profile:
             with torch.profiler.profile(
@@ -279,7 +283,10 @@ class SAETrainer:
                         current_l1_coefficient=self.current_l1_coefficient,
                     )
                     with torch.no_grad():
-                        if self.sae.cfg.use_fast_kernels:
+                        if (
+                            _supports_fast_kernels(self.sae.device)
+                            and self.sae.cfg.use_fast_kernels
+                        ):
                             # Handle sparse topk acts
                             did_fire = torch.zeros_like(
                                 train_step_output.hidden_pre,
@@ -296,7 +303,10 @@ class SAETrainer:
                         self.n_forward_passes_since_fired += 1
                         self.n_forward_passes_since_fired[did_fire] = 0
 
-                        if self.sae.cfg.use_fast_kernels:
+                        if (
+                            _supports_fast_kernels(self.sae.device)
+                            and self.sae.cfg.use_fast_kernels
+                        ):
                             assert train_step_output.top_indices is not None
                             _freq_scores = torch.zeros_like(
                                 train_step_output.hidden_pre,
@@ -350,7 +360,10 @@ class SAETrainer:
                 current_l1_coefficient=self.current_l1_coefficient,
             )
             with torch.no_grad():
-                if self.sae.cfg.use_fast_kernels:
+                if (
+                    _supports_fast_kernels(self.sae.device)
+                    and self.sae.cfg.use_fast_kernels
+                ):
                     # Handle sparse topk acts
                     did_fire = torch.zeros_like(
                         train_step_output.hidden_pre,
@@ -363,7 +376,10 @@ class SAETrainer:
                     did_fire = (train_step_output.feature_acts > 0).float().sum(-2) > 0
                 self.n_forward_passes_since_fired += 1
                 self.n_forward_passes_since_fired[did_fire] = 0
-                if self.sae.cfg.use_fast_kernels:
+                if (
+                    _supports_fast_kernels(self.sae.device)
+                    and self.sae.cfg.use_fast_kernels
+                ):
                     assert train_step_output.top_indices is not None
                     _freq_scores = torch.zeros_like(
                         train_step_output.hidden_pre,

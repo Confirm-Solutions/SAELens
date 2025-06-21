@@ -11,19 +11,25 @@ activation_fn_kwargs:
   k: 32
   postact_fn: "relu"
 expansion_factor: 64
-hook_name: "blocks.0.hook_mlp_out"
-hook_layer: 0
+
+hook_name: "blocks.3.hook_mlp_out"
+hook_layer: 3
 
 # Dataset
 dataset_path: "togethercomputer/RedPajama-Data-1T-Sample"
 is_dataset_tokenized: false
 column_name: text
+streaming: true
+
 
 # Training settings
 training_tokens: 10_000_000
 train_batch_size_tokens: 2048
 store_batch_size_prompts: 16
 n_batches_in_buffer: 16
+
+enable_flop_profiling: true
+flop_profile_interval: 1000
 
 # Wandb project
 wandb_project: "pythia-14m-redpajama" 

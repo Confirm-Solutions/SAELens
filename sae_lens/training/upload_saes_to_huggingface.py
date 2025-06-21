@@ -1,8 +1,8 @@
 import io
+from collections.abc import Iterable
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from textwrap import dedent
-from typing import Iterable
 
 from huggingface_hub import HfApi, create_repo, get_hf_file_metadata, hf_hub_url
 from huggingface_hub.utils import EntryNotFoundError, RepositoryNotFoundError

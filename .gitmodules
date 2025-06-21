@@ -1,9 +1,6 @@
 [submodule "sae_vis"]
 	path = sae_vis
 	url = git@github.com:Confirm-Solutions/sae_vis.git
-[submodule "delphi"]
-	path = delphi
-	url = git@github.com:Confirm-Solutions/delphi.git
 [submodule "SAEBench"]
 	path = SAEBench
 	url = git@github.com:Confirm-Solutions/SAEBench.git

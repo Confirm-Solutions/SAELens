@@ -27,6 +27,34 @@ SAE_CFG_PATH = "cfg.json"
 _FAST_KERNEL_ACTS = {"topk"}
 
 
+_supports_fast_kernels_flag = None
+
+
+def _supports_fast_kernels(device: torch.device) -> bool:
+    """
+    Check if fast kernels can be used. This requires embedding_bag to work on the current device.
+    """
+    global _supports_fast_kernels_flag
+
+    if _supports_fast_kernels_flag is not None:
+        return _supports_fast_kernels_flag
+
+    # Check if embedding_bag works on the current device
+    try:
+        # Test if embedding_bag function works
+        test_tensor = torch.randn(10, 5, device=device)
+        test_indices = torch.randint(0, 5, (10,), device=device)
+        test_offsets = torch.tensor([0, 10], device=device)  # Required for mode="sum"
+        torch.nn.functional.embedding_bag(
+            test_indices, test_tensor, test_offsets, mode="sum"
+        )
+        _supports_fast_kernels_flag = True
+    except (AttributeError, RuntimeError, NotImplementedError):
+        _supports_fast_kernels_flag = False
+
+    return _supports_fast_kernels_flag
+
+
 def rectangle(x: torch.Tensor) -> torch.Tensor:
     return ((x > -0.5) & (x < 0.5)).to(x)
 
@@ -456,7 +484,11 @@ class TrainingSAE(SAE):
         self,
         x: Float[torch.Tensor, "... d_in"],
     ) -> Float[torch.Tensor, "... d_in"]:
-        if self.cfg.use_fast_kernels and self.cfg.architecture in _FAST_KERNEL_ACTS:
+        if (
+            _supports_fast_kernels(self.device)
+            and self.cfg.use_fast_kernels
+            and self.cfg.architecture in _FAST_KERNEL_ACTS
+        ):
             sae_in = self.process_sae_in(x)
             payload = self.encode_fast(sae_in)
             sae_out = self.decode_fast(payload)
@@ -480,7 +512,11 @@ class TrainingSAE(SAE):
         # hidden pre.
 
         top_indices = None
-        if self.cfg.use_fast_kernels and self.cfg.architecture in _FAST_KERNEL_ACTS:
+        if (
+            _supports_fast_kernels(self.device)
+            and self.cfg.use_fast_kernels
+            and self.cfg.architecture in _FAST_KERNEL_ACTS
+        ):
             payload = self.encode_fast(sae_in)
             sae_out = self.decode_fast(payload)
             feature_acts, hidden_pre, top_indices = (
@@ -592,7 +628,7 @@ class TrainingSAE(SAE):
         # Boost the biases of the dead neurons by a small perturbation
         if self.cfg.use_random_bias_boost_noise:
             self.b_enc[dead_neuron_mask] += (
-                torch.randn_like(self.b_dec[dead_neuron_mask])
+                torch.randn_like(self.b_enc[dead_neuron_mask])
                 * self.cfg.dead_neuron_bias_boost_scale
             )
         else:
