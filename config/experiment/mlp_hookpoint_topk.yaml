@@ -48,8 +48,5 @@ hydra:
         - "blocks.2.hook_mlp_out"
         - "blocks.3.hook_mlp_out"
 
-enable_auxk_loss: true
-enable_dead_neuron_bias_boosting: false
-
 wandb_group: "topk_sae_training_6_21_25"
 checkpoint_path: "checkpoints/topk_sae_training_6_21_25"

@@ -1,7 +1,7 @@
 # @package _global_
 
 # Model configuration for TinyStories
-model_name: "pythia-70m"
+model_name: "pythia-70m-deduped"
 d_in: 512
 
 # Standard SAE architecture
@@ -29,8 +29,8 @@ hook_layer: 3
 # Training settings
 lr_warm_up_steps: 0
 training_tokens: 500_000_000
-feature_sampling_window: 100 
-dead_feature_window: 50
+feature_sampling_window: 1000
+dead_feature_window: 75
 dead_feature_threshold: 1e-3
 
 enable_auxk_loss: true
@@ -40,13 +40,14 @@ flop_profile_interval: 1000
 
 train_batch_size_tokens: 65536
 n_batches_in_buffer: 256
+store_batch_size_prompts: 32
 
 lr: 1e-4
 lr_scheduler_name: "constant"
 dtype: "bfloat16"
 
 # Wandb project
-wandb_project: "pythia-70m-redpajama" 
+wandb_project: "pythia-70m-deduped-rp1t" 
 wandb_group: "topk-sae-medium"
 
 checkpoint_path: "checkpoints/topk-sae-medium"
