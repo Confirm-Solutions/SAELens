@@ -27,6 +27,7 @@ training_tokens: 100_000_000
 feature_sampling_window: 1000
 dead_feature_window: 75
 dead_feature_threshold: 1e-3
+mse_loss_normalization: "dense_batch"
 
 enable_auxk_loss: true
 enable_dead_neuron_bias_boosting: false
