@@ -1,7 +1,7 @@
 # @package _global_
 
 defaults:
-  - topk_sae_medium
+  - topk_sae_70m
   - override /hydra/sweeper: list
 
 # hydra:
@@ -38,6 +38,8 @@ defaults:
 #         - 50
 #         - 100
 
+training_tokens: 1_000_000_000
+
 hydra:
   sweeper:
     list_params:
@@ -45,8 +47,5 @@ hydra:
         - 2
         - 3
       hook_name:
-        - "blocks.2.hook_mlp_out"
-        - "blocks.3.hook_mlp_out"
-
-wandb_group: "topk_sae_training_6_21_25"
-checkpoint_path: "checkpoints/topk_sae_training_6_21_25"
+        - "blocks.2.hook_resid_post"
+        - "blocks.3.hook_resid_post"

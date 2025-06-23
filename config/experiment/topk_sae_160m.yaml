@@ -1,8 +1,8 @@
 # @package _global_
 
 # Model configuration for TinyStories
-model_name: "pythia-70m-deduped"
-d_in: 512
+model_name: "pythia-160m-deduped"
+d_in: 768
 
 # Standard SAE architecture
 architecture: "topk"
@@ -14,21 +14,20 @@ expansion_factor: 64
 normalize_activations: "layer_norm"
 
 # Dataset
-dataset_path: "sidnb13/rp1t-sample-tokenized-pythia-70m"
-is_dataset_tokenized: true
+# dataset_path: "sidnb13/rp1t-sample-tokenized-pythia-160m"
+# is_dataset_tokenized: true
+# column_name: text
+
+dataset_path: "togethercomputer/RedPajama-Data-1T-Sample"
+is_dataset_tokenized: false
 column_name: text
 
-# dataset_path: "monology/pile-uncopyrighted"
-# is_dataset_tokenized: false
-# column_name: text
-# streaming: true
-
-hook_name: blocks.3.hook_mlp_out 
-hook_layer: 3
+hook_name: blocks.6.hook_resid_post 
+hook_layer: 6
 
 # Training settings
 lr_warm_up_steps: 0
-training_tokens: 500_000_000
+training_tokens: 100_000_000
 feature_sampling_window: 1000
 dead_feature_window: 75
 dead_feature_threshold: 1e-3
@@ -48,6 +47,6 @@ dtype: "bfloat16"
 
 # Wandb project
 wandb_project: "pythia-70m-deduped-rp1t" 
-wandb_group: "topk-sae-medium"
+wandb_group: "topk-sae-debug-resid-post"
 
-checkpoint_path: "checkpoints/topk-sae-medium"
+checkpoint_path: "checkpoints/topk-sae-debug-resid-post"
