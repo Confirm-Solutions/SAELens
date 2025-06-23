@@ -91,6 +91,7 @@ dev = [
     "ipykernel>=6.0.0",
     "ai_commit @ git+https://github.com/sidnb13/toolbox.git#subdirectory=src/ai_commit",
     "hydra-ray-jobs-launcher @ git+https://github.com/sidnb13/hydra#egg=hydra-ray-jobs-launcher&subdirectory=plugins/hydra_ray_jobs_launcher",
+    "ray[llm]==2.44.0",
     "hydra-list-sweeper"
 ]
 mamba = [
