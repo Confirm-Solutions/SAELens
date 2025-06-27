@@ -6,20 +6,12 @@ defaults:
 hydra:
   sweeper:
     grid_params:
-      activation_fn_kwargs.k: 2,4,8,16,32,64
+      activation_fn_kwargs.k: 8,16,32
     list_params:
       expansion_factor:
-        - 4
-        - 8
-        - 16
-        - 32
         - 64
         - 128
       train_batch_size_tokens:
-        - 65536
-        - 65536
-        - 65536
-        - 65536
         - 65536
         - 32768
 
@@ -42,7 +34,7 @@ hook_layer: 4
 
 # Training settings
 lr_warm_up_steps: 500
-training_tokens: 500_000_000
+training_tokens: 1_000_000_000
 feature_sampling_window: 1000
 dead_feature_window: 75
 dead_feature_threshold: 1e-3
@@ -62,6 +54,6 @@ dtype: "bfloat16"
 
 # Wandb project
 wandb_project: "pythia-160m-deduped-rp1t" 
-wandb_group: "topk-sae-resid-post-4-sweep-k-width"
+wandb_group: "topk-sae-resid-post-160m-1b-sweep"
 
-checkpoint_path: "checkpoints/topk-sae-debug-resid-post-160m"
+checkpoint_path: "checkpoints/topk-sae-resid-post-160m-1b-sweep"
