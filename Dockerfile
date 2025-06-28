@@ -38,5 +38,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --system -e '.[dev]' && \
     uv pip install --system ipdb
 
+RUN uv pip install -e SAEBench || true
+
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["zsh"]
