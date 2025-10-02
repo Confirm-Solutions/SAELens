@@ -35,7 +35,7 @@ dependencies = [
     "plotly-express>=0.4.1",
     "matplotlib>=3.8.3",
     "matplotlib-inline>=0.1.6",
-    "datasets>=2.17.1",
+    "datasets<4.0.0",
     "babe>=0.0.7",
     "nltk>=3.8.1",
     "safetensors>=0.4.2",

@@ -23,7 +23,7 @@ def test_benchmark_activations_store_get_batch_tokens_pretokenized_vs_raw():
         context_size=512,
     )
 
-    dataset = load_dataset(cfg.dataset_path, split="train")
+    dataset = load_dataset(cfg.dataset_path, trust_remote_code=True, split="train")
     pretokenize_cfg = PretokenizeRunnerConfig(
         tokenizer_name="gpt2",
         dataset_path=cfg.dataset_path,

@@ -190,6 +190,7 @@ class PretokenizeRunner:
             data_files=self.cfg.data_files,
             split=self.cfg.split,
             streaming=self.cfg.streaming,
+            trust_remote_code=True,
         )
         if isinstance(dataset, DatasetDict):
             raise ValueError(

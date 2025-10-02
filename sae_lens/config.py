@@ -7,6 +7,7 @@ from typing import Any, Literal, cast
 
 import simple_parsing
 import torch
+import wandb
 from datasets import (
     Dataset,
     DatasetDict,
@@ -16,7 +17,6 @@ from datasets import (
 )
 from omegaconf import OmegaConf
 
-import wandb
 from sae_lens import __version__, logger
 
 DTYPE_MAP = {
@@ -652,7 +652,12 @@ class CacheActivationsRunnerConfig:
     def __post_init__(self):
         # Automatically determine context_size if dataset is tokenized
         if self.context_size == -1:
-            ds = load_dataset(self.dataset_path, split="train", streaming=True)
+            ds = load_dataset(
+                self.dataset_path,
+                trust_remote_code=True,
+                split="train",
+                streaming=True,
+            )
             assert isinstance(ds, IterableDataset)
             first_sample = next(iter(ds))
             toks = first_sample.get("tokens") or first_sample.get("input_ids") or None
