@@ -1,19 +1,21 @@
 # @package _global_
 
-defaults:
-  - override /hydra/sweeper: list
+# defaults:
+#   - override /hydra/sweeper: list
 
-hydra:
-  sweeper:
-    grid_params:
-      activation_fn_kwargs.k: 8,16,32
-    list_params:
-      expansion_factor:
-        - 64
-        - 128
-      train_batch_size_tokens:
-        - 65536
-        - 32768
+# hydra:
+#   sweeper:
+#     grid_params:
+#       activation_fn_kwargs.k: 8,16,32
+#     list_params:
+#       expansion_factor:
+#         - 64
+#         - 128
+#       train_batch_size_tokens:
+#         - 65536
+#         - 32768
+
+expansion_factor: 64
 
 model_name: "pythia-160m-deduped"
 d_in: 768
@@ -44,7 +46,7 @@ enable_dead_neuron_bias_boosting: false
 
 flop_profile_interval: 1000
 
-train_batch_size_tokens: 65536
+train_batch_size_tokens: 32768
 n_batches_in_buffer: 256
 store_batch_size_prompts: 32
 
