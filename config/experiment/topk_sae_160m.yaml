@@ -19,6 +19,7 @@ expansion_factor: 64
 
 model_name: "pythia-160m-deduped"
 d_in: 768
+tokenizer_name: "EleutherAI/pythia-160m-deduped"
 
 architecture: "topk"
 activation_fn: null
@@ -28,7 +29,7 @@ activation_fn_kwargs:
 normalize_activations: "layer_norm"
 
 dataset_path: "togethercomputer/RedPajama-Data-1T-Sample"
-is_dataset_tokenized: false
+is_dataset_tokenized: true
 column_name: text
 
 hook_name: blocks.4.hook_resid_post 

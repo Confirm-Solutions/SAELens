@@ -404,7 +404,7 @@ class SAE(HookedRootModule):
         x: torch.Tensor,
     ) -> torch.Tensor:
         if self.cfg.architecture == "ridge":
-            sae_out, feature_acts = self.encode_ridge(x)
+            sae_out, feature_acts = self.encode(x)
         else:
             feature_acts = self.encode(x)
             sae_out = self.decode(feature_acts)  # type: ignore
@@ -473,36 +473,47 @@ class SAE(HookedRootModule):
         penalties = torch.diag_embed(topk_values.pow(-alpha))  # (batch, (seq), k, k)
         return penalties, topk_indices  # (batch (seq), k, k)
 
+    @torch.no_grad()
     def encode_ridge(
         self, x: Float[torch.Tensor, "... d_in"]
     ) -> tuple[Float[torch.Tensor, "... d_in"], Float[torch.Tensor, "... d_sae"]]:
+        # Ensure inputs are 2D (batch, d_in). Handle single-vector inputs gracefully.
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
+        if x.dim() > 2:
+            raise ValueError("Ridge encoding only supports flattened sequences")
+
         sae_in = self.process_sae_in_ridge(x)
         scores = sae_in @ self.dictionary
 
-        # (batch, seq, k, k), topk_indices (batch, seq, k)
+        # (batch, opt[seq], k, k), topk_indices (batch, opt[seq], k)
         penalty_diag, topk_indices = self.get_topk_penalty_diag(scores)
 
-        dict_expanded = self.dictionary[None, None, :, :].expand(
-            x.shape[0], x.shape[1], -1, -1
-        )  # (batch, d_in, seq, d_sae)
+        dict_expanded = self.dictionary[None, :, :].expand(
+            x.shape[0], -1, -1
+        )  # (batch, d_in, d_sae)
         X = torch.gather(
             dict_expanded,
             -1,
-            topk_indices.unsqueeze(2).expand(-1, -1, self.dictionary.shape[0], -1),
-        )  # (batch, seq, d_in, k)
+            topk_indices.unsqueeze(1).expand(-1, self.dictionary.shape[0], -1),
+        )  # (batch, k, d_in)
 
-        # (B, P, P)
+        # (B, opt[seq], P, P)
         XtX = X.transpose(-1, -2) @ X + penalty_diag
         M = torch.linalg.inv(XtX)
         # Apply top-k mask
         # (B, P, 1)
         masked_beta = M @ (X.transpose(-1, -2) @ sae_in.unsqueeze(-1))
+        # Preserve the batch dimension; only remove the trailing singleton
+        Yhat = (X @ masked_beta).squeeze(-1)
 
+        # The post-encoder "feature_acts"
+        # Materialize without blowing up memory thanks to flattening
         full_beta = torch.zeros(
-            x.shape[0], x.shape[1], self.cfg.d_sae, device=x.device, dtype=x.dtype
+            x.shape[0], self.cfg.d_sae, device=x.device, dtype=x.dtype
         )
-        full_beta.scatter_(-1, topk_indices, masked_beta.squeeze())
-        Yhat = (X @ masked_beta).squeeze()
+        # Preserve (batch, k) shape for scatter, even when batch==1 or k==1
+        full_beta.scatter_(-1, topk_indices, masked_beta.squeeze(-1))
 
         return Yhat, full_beta
 
@@ -539,9 +550,7 @@ class SAE(HookedRootModule):
         reconstruction: Float[torch.Tensor, "... d_in"],
     ) -> Float[torch.Tensor, "... d_in"]:
         # just a wrapper func to apply post-processing
-        sae_out = self.hook_sae_recons(reconstruction)
-        sae_out = self.run_time_activation_norm_fn_out(sae_out)
-        return self.reshape_fn_out(sae_out, self.d_head)
+        return self.hook_sae_recons(reconstruction)
 
     def decode(
         self,
