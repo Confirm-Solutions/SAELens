@@ -404,10 +404,10 @@ class SAE(HookedRootModule):
         x: torch.Tensor,
     ) -> torch.Tensor:
         if self.cfg.architecture == "ridge":
-            sae_out, feature_acts = self.encode(x)
+            sae_out, feature_acts = self.encode_ridge(x, return_reconstruction=True)
         else:
             feature_acts = self.encode(x)
-            sae_out = self.decode(feature_acts)  # type: ignore
+            sae_out = self.decode(feature_acts)
 
         # TEMP
         if self.use_error_term and self.cfg.architecture != "ridge":
@@ -475,8 +475,11 @@ class SAE(HookedRootModule):
 
     @torch.no_grad()
     def encode_ridge(
-        self, x: Float[torch.Tensor, "... d_in"]
-    ) -> tuple[Float[torch.Tensor, "... d_in"], Float[torch.Tensor, "... d_sae"]]:
+        self, x: Float[torch.Tensor, "... d_in"], return_reconstruction: bool = False
+    ) -> (
+        Float[torch.Tensor, "... d_in"]
+        | tuple[Float[torch.Tensor, "... d_in"], Float[torch.Tensor, "... d_sae"]]
+    ):
         # Ensure inputs are 2D (batch, d_in). Handle single-vector inputs gracefully.
         if x.dim() == 1:
             x = x.unsqueeze(0)
@@ -515,7 +518,9 @@ class SAE(HookedRootModule):
         # Preserve (batch, k) shape for scatter, even when batch==1 or k==1
         full_beta.scatter_(-1, topk_indices, masked_beta.squeeze(-1))
 
-        return Yhat, full_beta
+        if return_reconstruction:
+            return Yhat, full_beta
+        return full_beta
 
     def encode_standard(
         self, x: Float[torch.Tensor, "... d_in"]
